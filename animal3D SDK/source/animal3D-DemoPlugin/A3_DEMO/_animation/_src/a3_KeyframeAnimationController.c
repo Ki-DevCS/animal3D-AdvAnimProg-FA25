@@ -33,6 +33,29 @@ typedef a3ui32 animal_UIntVar;
 typedef a3byte animal_ByteVar;
 
 
+#include <math.h>
+
+//Custom Helper Functions; used to wrap a time value into the range [0, duration)
+static inline animal_DoubleVar wrapPositive_Double(animal_DoubleVar time, animal_DoubleVar duration)
+{
+	animal_DoubleVar remainder = fmod(time, duration);
+	if (remainder < (animal_DoubleVar)0.0) remainder += duration;
+	return remainder;
+}
+
+static inline animal_IntVar wrapPositive_Int(animal_IntVar time, animal_IntVar duration)
+{
+	if (duration <= 0)
+		return 0; // avoid divide-by-zero or nonsense wrapping
+
+	animal_IntVar remainder = time % duration;
+	if (remainder < 0)
+		remainder += duration;
+	return remainder;
+}
+
+
+
 
 // macros to help with names
 #define A3_CLIPCTRL_DEFAULTNAME		("unnamed clip ctrl")
