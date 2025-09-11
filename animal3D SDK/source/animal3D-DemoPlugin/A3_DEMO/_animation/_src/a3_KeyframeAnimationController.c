@@ -84,7 +84,20 @@ a3i32 a3clipControllerUpdate(a3_ClipController* clipCtrl, a3f64 dt)
 //-----------------------------------------------------------------------------
 //****TO-DO-ANIM-PROJECT-1: IMPLEMENT ME
 //-----------------------------------------------------------------------------
-		
+
+		//?check that controller; clip; and keyframe exist. If not; error
+		if (!(clipCtrl && clipCtrl->clipPool && clipCtrl->clip && clipCtrl->keyframe))
+			return -1;
+
+		//?check if DeltaTime is 0 or negative. If true; then the clip shouldn't progress
+		if (dt <= (animal_DoubleVar)0.0)
+			return 0;
+
+		const animal_DoubleVar timeStepSec =
+			dt * clipCtrl->playback_stepPerSec * (animal_DoubleVar)clipCtrl->playback_step;
+
+		clipCtrl->keyframeTime_sec += timeStepSec;   // (1) increment keyframe time (sec)
+		clipCtrl->clipTime_sec += timeStepSec;   // (2) increment clip time (sec)
 		
 
 //-----------------------------------------------------------------------------
