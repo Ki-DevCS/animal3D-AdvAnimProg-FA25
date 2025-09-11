@@ -26,6 +26,13 @@
 
 #include <string.h>
 
+//! Type Definitions so I can figure out exactly what I am working with;
+typedef a3f64  animal_DoubleVar;
+typedef a3i32  animal_IntVar;
+typedef a3ui32 animal_UIntVar;
+typedef a3byte animal_ByteVar;
+
+
 
 // macros to help with names
 #define A3_CLIPCTRL_DEFAULTNAME		("unnamed clip ctrl")
@@ -40,7 +47,7 @@ a3i32 a3clipControllerInit(a3_ClipController* clipCtrl_out, const a3byte ctrlNam
 	a3i32 const ret = a3clipControllerSetClip(clipCtrl_out, clipPool, clipIndex_pool, playback_step, playback_stepPerSec);
 	if (ret >= 0)
 	{
-		strncpy(clipCtrl_out->name, A3_CLIPCTRL_SEARCHNAME, a3keyframeAnimation_nameLenMax);
+		strncpy(clipCtrl_out->name, ctrlName, a3keyframeAnimation_nameLenMax);
 		return ret;
 	}
 	return -1;
@@ -54,8 +61,8 @@ a3i32 a3clipControllerUpdate(a3_ClipController* clipCtrl, a3f64 dt)
 //-----------------------------------------------------------------------------
 //****TO-DO-ANIM-PROJECT-1: IMPLEMENT ME
 //-----------------------------------------------------------------------------
-
-
+		
+		
 
 //-----------------------------------------------------------------------------
 //****END-TO-DO-PROJECT-1
