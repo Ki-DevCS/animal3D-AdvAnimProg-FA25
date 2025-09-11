@@ -26,6 +26,8 @@
 
 #include <string.h>
 
+#include "A3_DEMO/a3_Scene_Animation.h"
+
 //! Type Definitions so I can figure out exactly what I am working with;
 typedef a3f64  animal_DoubleVar;
 typedef a3i32  animal_IntVar;
@@ -84,6 +86,64 @@ static inline void stepKeyframeBackward(a3_ClipController* c)
 }
 
 
+//Custom Helper Function; used to apply the transition
+static inline void ApplyTransition(
+	a3_ClipController* c,
+	a3_ClipTransition const* tr,
+	animal_DoubleVar overstep_sec,
+	animal_IntVar    overstep_step)
+{
+	if (!tr) return;
+
+	// direction changes?
+	if (tr->flag & a3clip_reverseFlag)
+		c->playback_step = -c->playback_step;
+
+	// clip change?
+	if (tr->flag & a3clip_clipFlag) {
+		a3i32 target = tr->clipIndex;
+		if (target >= 0 && target < (a3i32)c->clipPool->clipCount)
+			a3clipControllerSetClip(c, c->clipPool, (a3ui32)target, c->playback_step, c->playback_stepPerSec);
+	}
+
+	// snap to start or end (we’re about to add overstep/offset)
+	if (tr->flag & a3clip_terminusFlag) {
+		c->clipTime_sec = c->clip->duration_sec;
+		c->clipTime_step = c->clip->duration_step;
+	}
+	else {
+		c->clipTime_sec = 0.0;
+		c->clipTime_step = 0;
+	}
+
+	// optional offset (in steps)
+	if (tr->flag & a3clip_offsetFlag) {
+		c->clipTime_step += tr->offset;
+		if (c->playback_secPerStep > 0.0)
+			c->clipTime_sec += (animal_DoubleVar)tr->offset * c->playback_secPerStep;
+	}
+
+	// keep leftover time?
+	if (tr->flag & a3clip_overstepFlag) {
+		c->clipTime_sec += overstep_sec;
+		c->clipTime_step += overstep_step;
+	}
+
+	// skip boundary (nudge inside)
+	if (tr->flag & a3clip_skipFlag) {
+		animal_DoubleVar nudge = (c->playback_secPerStep > 0.0)
+			? c->playback_secPerStep * 0.5 : 1.0 / 120.0;
+		c->clipTime_sec += (c->playback_step >= 0 ? +nudge : -nudge);
+	}
+
+	// wrap and refresh pointers
+	c->clipTime_sec = wrapPositive_Double(c->clipTime_sec, c->clip->duration_sec);
+	c->clipTime_step = wrapPositive_Int(c->clipTime_step, c->clip->duration_step);
+	a3clipControllerRefresh(c, c->clipPool);
+}
+
+
+
 
 // macros to help with names
 #define A3_CLIPCTRL_DEFAULTNAME		("unnamed clip ctrl")
@@ -127,6 +187,13 @@ a3i32 a3clipControllerUpdate(a3_ClipController* clipCtrl, a3f64 dt)
 		if (dt <= (animal_DoubleVar)0.0)
 			return 0;
 
+		//DEBUG/SAFETY: ensure playback has sane defaults so time actually advances
+		if (clipCtrl->playback_step == 0)                         // paused? force forward for now
+			clipCtrl->playback_step = +1;
+		if (!(clipCtrl->playback_stepPerSec > (animal_DoubleVar)0.0)) {
+			clipCtrl->playback_stepPerSec = (animal_DoubleVar)1.0; // 1 step/sec
+			clipCtrl->playback_secPerStep = (animal_DoubleVar)1.0; // reciprocal (avoid div-by-zero)
+		}
 
 		const animal_DoubleVar timeStepSec =
 			dt * clipCtrl->playback_stepPerSec * (animal_DoubleVar)clipCtrl->playback_step;
@@ -158,6 +225,26 @@ a3i32 a3clipControllerUpdate(a3_ClipController* clipCtrl, a3f64 dt)
 			clipCtrl->clipParam = 0.0;
 			clipCtrl->keyframeParam = 0.0;
 			return 0;
+		}
+
+		if (clipCtrl->playback_step >= 0) {
+			if (clipCtrl->clipTime_sec >= clipDurSec) {
+				// leftover past the end
+				animal_DoubleVar over_sec = clipCtrl->clipTime_sec - clipDurSec;
+				animal_IntVar    over_stp = 0;
+				if (clipCtrl->playback_secPerStep > (animal_DoubleVar)0.0 && clipDurStp > 0)
+					over_stp = wrapPositive_Int(clipCtrl->clipTime_step - clipDurStp, clipDurStp);
+
+				ApplyTransition(clipCtrl, clipCtrl->clip->transitionForward, over_sec, over_stp);
+			}
+		}
+		else {
+			if (clipCtrl->clipTime_sec < (animal_DoubleVar)0.0) {
+				// negative leftover before start
+				animal_DoubleVar over_sec = clipCtrl->clipTime_sec;
+				animal_IntVar    over_stp = 0;
+				ApplyTransition(clipCtrl, clipCtrl->clip->transitionReverse, over_sec, over_stp);
+			}
 		}
 
 		//Wrap Functions

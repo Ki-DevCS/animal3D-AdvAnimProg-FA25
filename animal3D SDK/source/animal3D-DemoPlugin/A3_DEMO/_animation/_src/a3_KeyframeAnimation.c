@@ -129,8 +129,12 @@ a3i32 a3clipInit(a3_Clip* clip_out, const a3byte clipName[a3keyframeAnimation_na
 		clip_out->keyframeCount = clip_out->keyframeIndex_final - clip_out->keyframeIndex_first;
 		clip_out->keyframeDirection = a3sgn(clip_out->keyframeCount);
 		clip_out->keyframeCount = 1 + clip_out->keyframeCount * clip_out->keyframeDirection;
-		a3clipTransitionInit(clip_out->transitionForward, a3clip_stopFlag, 0, clip_out);
-		a3clipTransitionInit(clip_out->transitionReverse, a3clip_stopFlag, 0, clip_out);
+
+		//Modified to keep overstep time and don't stick on the boundary
+		a3clipTransitionInit(clip_out->transitionForward,
+			a3clip_playFlag | a3clip_overstepFlag | a3clip_skipFlag, 0, clip_out);
+		a3clipTransitionInit(clip_out->transitionReverse,
+			a3clip_playFlag | a3clip_overstepFlag | a3clip_skipFlag, 0, clip_out);
 		return clip_out->index;
 	}
 	return -1;
