@@ -98,7 +98,36 @@ a3i32 a3clipControllerUpdate(a3_ClipController* clipCtrl, a3f64 dt)
 
 		clipCtrl->keyframeTime_sec += timeStepSec;   // (1) increment keyframe time (sec)
 		clipCtrl->clipTime_sec += timeStepSec;   // (2) increment clip time (sec)
-		
+
+		//Keep Step integer in sync
+		if (clipCtrl->playback_secPerStep > (animal_DoubleVar)0.0)
+		{
+			const animal_DoubleVar asStepsF = timeStepSec / clipCtrl->playback_secPerStep;
+			const animal_IntVar    asStepsI = (animal_IntVar)(
+				asStepsF >= (animal_DoubleVar)0.0 ? floor(asStepsF) : ceil(asStepsF));
+			clipCtrl->keyframeTime_step += asStepsI;
+			clipCtrl->clipTime_step += asStepsI;
+		}
+
+		//Implement looping behaviour (wrap to [0, duration)
+		const animal_DoubleVar clipDurSec = clipCtrl->clip->duration_sec;
+		const animal_IntVar    clipDurStp = clipCtrl->clip->duration_step;
+
+		//force stop for bad duration
+		if (!(clipDurSec > (animal_DoubleVar)0.0) || !(clipDurStp > 0))
+		{
+			clipCtrl->clipTime_sec = 0.0;
+			clipCtrl->clipTime_step = 0;
+			clipCtrl->keyframeTime_sec = 0.0;
+			clipCtrl->keyframeTime_step = 0;
+			clipCtrl->clipParam = 0.0;
+			clipCtrl->keyframeParam = 0.0;
+			return 0;
+		}
+
+		//Wrap Functions
+		clipCtrl->clipTime_sec = wrapPositive_Double(clipCtrl->clipTime_sec, clipDurSec);
+		clipCtrl->clipTime_step = wrapPositive_Int(clipCtrl->clipTime_step, clipDurStp);
 
 //-----------------------------------------------------------------------------
 //****END-TO-DO-PROJECT-1
