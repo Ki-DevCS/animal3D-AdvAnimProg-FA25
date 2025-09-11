@@ -81,11 +81,11 @@ a3i32 a3clipControllerUpdate(a3_ClipController* clipCtrl, a3f64 dt)
 {
 	if (clipCtrl && clipCtrl->clipPool)
 	{
-//-----------------------------------------------------------------------------
-//****TO-DO-ANIM-PROJECT-1: IMPLEMENT ME
-//-----------------------------------------------------------------------------
+		//-----------------------------------------------------------------------------
+		//****TO-DO-ANIM-PROJECT-1: IMPLEMENT ME
+		//-----------------------------------------------------------------------------
 
-		//?check that controller; clip; and keyframe exist. If not; error
+				//?check that controller; clip; and keyframe exist. If not; error
 		if (!(clipCtrl && clipCtrl->clipPool && clipCtrl->clip && clipCtrl->keyframe))
 			return -1;
 
@@ -129,11 +129,91 @@ a3i32 a3clipControllerUpdate(a3_ClipController* clipCtrl, a3f64 dt)
 		clipCtrl->clipTime_sec = wrapPositive_Double(clipCtrl->clipTime_sec, clipDurSec);
 		clipCtrl->clipTime_step = wrapPositive_Int(clipCtrl->clipTime_step, clipDurStp);
 
-//-----------------------------------------------------------------------------
-//****END-TO-DO-PROJECT-1
-//-----------------------------------------------------------------------------
-	}
-	return -1;
+		//Run Loop
+		for (;;)
+		{
+			const animal_DoubleVar kfDurSec = clipCtrl->keyframe->duration_sec;
+			const animal_IntVar    kfDurStp = (animal_IntVar)clipCtrl->keyframe->duration_step;
+
+			// 0) Check once in playback; repeat
+			if (!(kfDurSec > (animal_DoubleVar)0.0))
+			{
+				if (clipCtrl->playback_step >= 0)
+				{
+					++clipCtrl->keyframeIndex;
+					if (clipCtrl->keyframeIndex > clipCtrl->clip->keyframeIndex_final)
+						clipCtrl->keyframeIndex = clipCtrl->clip->keyframeIndex_first;
+				}
+				else
+				{
+					--clipCtrl->keyframeIndex;
+					if (clipCtrl->keyframeIndex < clipCtrl->clip->keyframeIndex_first)
+						clipCtrl->keyframeIndex = clipCtrl->clip->keyframeIndex_final;
+				}
+				clipCtrl->keyframe = clipCtrl->clipPool->keyframe + clipCtrl->keyframeIndex;
+				continue;
+			}
+
+			// 1) Forward Step
+			if (clipCtrl->keyframeTime_sec >= kfDurSec)
+			{
+				// consume this keyframe's duration
+				clipCtrl->keyframeTime_sec -= kfDurSec;
+
+				// keep integer "step" domain coherent
+				if (clipCtrl->playback_secPerStep > (animal_DoubleVar)0.0 && kfDurStp > 0)
+					clipCtrl->keyframeTime_step = wrapPositive_Int(
+						clipCtrl->keyframeTime_step - kfDurStp, kfDurStp);
+
+				// advance to next keyframe (looping)
+				++clipCtrl->keyframeIndex;
+				if (clipCtrl->keyframeIndex > clipCtrl->clip->keyframeIndex_final)
+					clipCtrl->keyframeIndex = clipCtrl->clip->keyframeIndex_first;
+
+				clipCtrl->keyframe = clipCtrl->clipPool->keyframe + clipCtrl->keyframeIndex;
+				continue; // re-check with new keyframe
+			}
+
+			// 2) Reverse step
+			if (clipCtrl->keyframeTime_sec < (animal_DoubleVar)0.0)
+			{
+				// step back (looping)
+				--clipCtrl->keyframeIndex;
+				if (clipCtrl->keyframeIndex < clipCtrl->clip->keyframeIndex_first)
+					clipCtrl->keyframeIndex = clipCtrl->clip->keyframeIndex_final;
+				clipCtrl->keyframe = clipCtrl->clipPool->keyframe + clipCtrl->keyframeIndex;
+
+				// add the (new) current keyframe's duration to bring time into range
+				const animal_DoubleVar newDurSec = clipCtrl->keyframe->duration_sec;
+				const animal_IntVar    newDurStp = (animal_IntVar)clipCtrl->keyframe->duration_step;
+
+				clipCtrl->keyframeTime_sec += newDurSec;
+
+				if (clipCtrl->playback_secPerStep > (animal_DoubleVar)0.0 && newDurStp > 0)
+					clipCtrl->keyframeTime_step = wrapPositive_Int(
+						clipCtrl->keyframeTime_step + newDurStp, newDurStp);
+
+				continue;
+			}
+
+			// 3) In-range - done resolving
+			break;
+		}
+
+			//Clip Control Params
+			clipCtrl->clipParam = clipCtrl->clipTime_sec / clipDurSec;
+			clipCtrl->keyframeParam = clipCtrl->keyframeTime_sec / clipCtrl->keyframe->duration_sec;
+
+		
+
+		// clipCtrl->clipParam = fmod(clipCtrl->clipParam + 0.25, 1.0);
+			return 0;
+
+			//-----------------------------------------------------------------------------
+			//****END-TO-DO-PROJECT-1
+			//-----------------------------------------------------------------------------
+		}
+		return -1;
 }
 
 
