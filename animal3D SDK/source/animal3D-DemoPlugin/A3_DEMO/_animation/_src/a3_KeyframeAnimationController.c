@@ -54,6 +54,34 @@ static inline animal_IntVar wrapPositive_Int(animal_IntVar time, animal_IntVar d
 	return remainder;
 }
 
+//Custom Helper Functions; used to step Keyframe Forward and Backward
+static inline void stepKeyframeForward(a3_ClipController* c)
+{
+	a3i32 idxFirst = c->clip->keyframeIndex_first;  // signed in header
+	a3i32 idxFinal = c->clip->keyframeIndex_final;  // signed in header
+	a3i32 idx = (a3i32)c->keyframeIndex;       // work in signed
+
+	++idx;
+	if (idx > idxFinal)
+		idx = idxFirst;
+
+	c->keyframeIndex = (a3ui32)idx;                 // write back as unsigned
+	c->keyframe = c->clipPool->keyframe + c->keyframeIndex;
+}
+
+static inline void stepKeyframeBackward(a3_ClipController* c)
+{
+	a3i32 idxFirst = c->clip->keyframeIndex_first;
+	a3i32 idxFinal = c->clip->keyframeIndex_final;
+	a3i32 idx = (a3i32)c->keyframeIndex;
+
+	--idx;
+	if (idx < idxFirst)
+		idx = idxFinal;
+
+	c->keyframeIndex = (a3ui32)idx;
+	c->keyframe = c->clipPool->keyframe + c->keyframeIndex;
+}
 
 
 
@@ -85,13 +113,20 @@ a3i32 a3clipControllerUpdate(a3_ClipController* clipCtrl, a3f64 dt)
 		//****TO-DO-ANIM-PROJECT-1: IMPLEMENT ME
 		//-----------------------------------------------------------------------------
 
-				//?check that controller; clip; and keyframe exist. If not; error
-		if (!(clipCtrl && clipCtrl->clipPool && clipCtrl->clip && clipCtrl->keyframe))
+	// must have controller + pool + clip (keyframe may be null on first tick)
+		if (!(clipCtrl && clipCtrl->clipPool && clipCtrl->clip))
 			return -1;
 
-		//?check if DeltaTime is 0 or negative. If true; then the clip shouldn't progress
+		// initialize keyframe pointer on first tick if needed
+		if (!clipCtrl->keyframe) {
+			clipCtrl->keyframeIndex = (a3ui32)clipCtrl->clip->keyframeIndex_first;
+			clipCtrl->keyframe = clipCtrl->clipPool->keyframe + clipCtrl->keyframeIndex;
+		}
+
+		// if no time advanced, nothing to do
 		if (dt <= (animal_DoubleVar)0.0)
 			return 0;
+
 
 		const animal_DoubleVar timeStepSec =
 			dt * clipCtrl->playback_stepPerSec * (animal_DoubleVar)clipCtrl->playback_step;
@@ -138,52 +173,30 @@ a3i32 a3clipControllerUpdate(a3_ClipController* clipCtrl, a3f64 dt)
 			// 0) Check once in playback; repeat
 			if (!(kfDurSec > (animal_DoubleVar)0.0))
 			{
-				if (clipCtrl->playback_step >= 0)
-				{
-					++clipCtrl->keyframeIndex;
-					if (clipCtrl->keyframeIndex > clipCtrl->clip->keyframeIndex_final)
-						clipCtrl->keyframeIndex = clipCtrl->clip->keyframeIndex_first;
-				}
-				else
-				{
-					--clipCtrl->keyframeIndex;
-					if (clipCtrl->keyframeIndex < clipCtrl->clip->keyframeIndex_first)
-						clipCtrl->keyframeIndex = clipCtrl->clip->keyframeIndex_final;
-				}
-				clipCtrl->keyframe = clipCtrl->clipPool->keyframe + clipCtrl->keyframeIndex;
+				if (clipCtrl->playback_step >= 0) stepKeyframeForward(clipCtrl);
+				else                               stepKeyframeBackward(clipCtrl);
 				continue;
 			}
 
 			// 1) Forward Step
 			if (clipCtrl->keyframeTime_sec >= kfDurSec)
 			{
-				// consume this keyframe's duration
 				clipCtrl->keyframeTime_sec -= kfDurSec;
 
-				// keep integer "step" domain coherent
 				if (clipCtrl->playback_secPerStep > (animal_DoubleVar)0.0 && kfDurStp > 0)
 					clipCtrl->keyframeTime_step = wrapPositive_Int(
 						clipCtrl->keyframeTime_step - kfDurStp, kfDurStp);
 
-				// advance to next keyframe (looping)
-				++clipCtrl->keyframeIndex;
-				if (clipCtrl->keyframeIndex > clipCtrl->clip->keyframeIndex_final)
-					clipCtrl->keyframeIndex = clipCtrl->clip->keyframeIndex_first;
-
-				clipCtrl->keyframe = clipCtrl->clipPool->keyframe + clipCtrl->keyframeIndex;
-				continue; // re-check with new keyframe
+				stepKeyframeForward(clipCtrl);
+				continue;
 			}
+
 
 			// 2) Reverse step
 			if (clipCtrl->keyframeTime_sec < (animal_DoubleVar)0.0)
 			{
-				// step back (looping)
-				--clipCtrl->keyframeIndex;
-				if (clipCtrl->keyframeIndex < clipCtrl->clip->keyframeIndex_first)
-					clipCtrl->keyframeIndex = clipCtrl->clip->keyframeIndex_final;
-				clipCtrl->keyframe = clipCtrl->clipPool->keyframe + clipCtrl->keyframeIndex;
+				stepKeyframeBackward(clipCtrl);
 
-				// add the (new) current keyframe's duration to bring time into range
 				const animal_DoubleVar newDurSec = clipCtrl->keyframe->duration_sec;
 				const animal_IntVar    newDurStp = (animal_IntVar)clipCtrl->keyframe->duration_step;
 
@@ -207,6 +220,9 @@ a3i32 a3clipControllerUpdate(a3_ClipController* clipCtrl, a3f64 dt)
 		
 
 		// clipCtrl->clipParam = fmod(clipCtrl->clipParam + 0.25, 1.0);
+			a3clipControllerRefresh(clipCtrl, clipCtrl->clipPool);
+
+
 			return 0;
 
 			//-----------------------------------------------------------------------------
