@@ -22,6 +22,13 @@
 	Implementation of keyframe animation controller.
 */
 
+
+/*
+	Re-typedef for sanity's sake by Alessa Wunsch;
+	Helper Functions by Alessa Wunsch;
+	Implementation of Clip Controller Update by - you guessed it - Alessa Wunsch;
+ */
+
 #include "../a3_KeyframeAnimationController.h"
 
 #include <string.h>
@@ -153,7 +160,7 @@ static inline void ApplyTransition(
 //-----------------------------------------------------------------------------
 
 // initialize clip controller
-a3i32 a3clipControllerInit(a3_ClipController* clipCtrl_out, const a3byte ctrlName[a3keyframeAnimation_nameLenMax], const a3_ClipPool* clipPool, const a3ui32 clipIndex_pool, const a3i32 playback_step, const a3f64 playback_stepPerSec)
+animal_IntVar a3clipControllerInit(a3_ClipController* clipCtrl_out, const a3byte ctrlName[a3keyframeAnimation_nameLenMax], const a3_ClipPool* clipPool, const a3ui32 clipIndex_pool, const a3i32 playback_step, const a3f64 playback_stepPerSec)
 {
 	a3i32 const ret = a3clipControllerSetClip(clipCtrl_out, clipPool, clipIndex_pool, playback_step, playback_stepPerSec);
 	if (ret >= 0)
@@ -165,7 +172,9 @@ a3i32 a3clipControllerInit(a3_ClipController* clipCtrl_out, const a3byte ctrlNam
 }
 
 // update clip controller
-a3i32 a3clipControllerUpdate(a3_ClipController* clipCtrl, a3f64 dt)
+
+//! Returns an Int
+animal_IntVar a3clipControllerUpdate(a3_ClipController* clipCtrl, a3f64 dt)
 {
 	if (clipCtrl && clipCtrl->clipPool)
 	{
@@ -187,16 +196,17 @@ a3i32 a3clipControllerUpdate(a3_ClipController* clipCtrl, a3f64 dt)
 		if (dt <= (animal_DoubleVar)0.0)
 			return 0;
 
-		//DEBUG/SAFETY: ensure playback has sane defaults so time actually advances
-		if (clipCtrl->playback_step == 0)                         // paused? force forward for now
-			clipCtrl->playback_step = +1;
-		if (!(clipCtrl->playback_stepPerSec > (animal_DoubleVar)0.0)) {
-			clipCtrl->playback_stepPerSec = (animal_DoubleVar)1.0; // 1 step/sec
-			clipCtrl->playback_secPerStep = (animal_DoubleVar)1.0; // reciprocal (avoid div-by-zero)
-		}
+		if (clipCtrl->playback_stepPerSec > 0.0)
+			clipCtrl->playback_secPerStep = 1.0 / clipCtrl->playback_stepPerSec;
+		else
+			clipCtrl->playback_secPerStep = 0.0;
 
-		const animal_DoubleVar timeStepSec =
-			dt * clipCtrl->playback_stepPerSec * (animal_DoubleVar)clipCtrl->playback_step;
+		// use only the sign of playback_step for direction (-1, 0, +1)
+		int const dir = (clipCtrl->playback_step > 0) - (clipCtrl->playback_step < 0);
+		clipCtrl->playback_step = dir;
+
+		// advance seconds by dt * direction
+		const animal_DoubleVar timeStepSec = dt * (animal_DoubleVar)dir;
 
 		clipCtrl->keyframeTime_sec += timeStepSec;   // (1) increment keyframe time (sec)
 		clipCtrl->clipTime_sec += timeStepSec;   // (2) increment clip time (sec)

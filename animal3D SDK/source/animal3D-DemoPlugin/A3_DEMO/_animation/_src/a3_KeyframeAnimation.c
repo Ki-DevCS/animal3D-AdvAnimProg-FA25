@@ -22,6 +22,10 @@
 	Implementation of keyframe animation interfaces.
 */
 
+/*
+	a3clipTransitionInit modified by Alessa Wunsch
+ */
+
 #include "../a3_KeyframeAnimation.h"
 
 #include <stdlib.h>
