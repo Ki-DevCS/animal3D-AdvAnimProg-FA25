@@ -185,7 +185,23 @@ void a3kinematicsUpdateHierarchyStateFK(a3_HierarchyState* activeHS,
 //-----------------------------------------------------------------------------
 //****TO-DO-ANIM-PROJECT-2: IMPLEMENT ME
 //-----------------------------------------------------------------------------
+		a3hierarchyPoseConcat
+		(
+			activeHS->localSpace, //GOAL : Local Pose
+			activeHS->animPose,
+			baseHS->localSpace,
+			activeHS->hierarchy->numNodes
+		);
 
+		a3hierarchyPoseConvert
+		(
+			activeHS->localSpace,
+			activeHS->hierarchy->numNodes,
+			poseGroup->channel,
+			poseGroup->order
+		);
+
+		a3kinematicsSolveForward(activeHS);
 
 
 //-----------------------------------------------------------------------------
