@@ -36,7 +36,49 @@ a3i32 a3spatialPoseConvert(a3_SpatialPose* spatialPose, const a3_SpatialPoseChan
 //****TO-DO-ANIM-PROJECT-2: IMPLEMENT ME
 //-----------------------------------------------------------------------------
 		
-		//todo : a3SpatialPoseConvert
+		//todo : implement channel and order if time permits
+
+		//shh warnings :3
+		(void)channel;
+		(void)order;
+
+		//Matrix definition
+		a3real4x4 scaleMatrix;
+		a3real4x4 rotationMatrix;
+		a3real4x4 translationMatrix;
+		a3real4x4 TR_temp; 
+		a3real4x4 localMatrix;
+
+		//Matrix identity set
+		a3real4x4SetIdentity(scaleMatrix);
+		a3real4x4SetIdentity(rotationMatrix);
+		a3real4x4SetIdentity(translationMatrix);
+
+		//Build Scale Matrix
+		a3real4x4SetNonUnif(scaleMatrix,
+			spatialPose->scale.x,
+			spatialPose->scale.y,
+			spatialPose->scale.z);
+
+		//Build Rotation Matrix
+		a3quatConvertToMat4(rotationMatrix, spatialPose->rotate.v);
+
+		//Build Translation Matrix
+		a3real4x4SetIdentity(translationMatrix);
+		translationMatrix[3][0] = spatialPose->translate.x;  // tx
+		translationMatrix[3][1] = spatialPose->translate.y;  // ty
+		translationMatrix[3][2] = spatialPose->translate.z;  // tz
+
+		//matrix calculation
+		a3real4x4Product(TR_temp, translationMatrix, rotationMatrix);
+		a3real4x4Product(localMatrix, TR_temp, scaleMatrix);
+
+		//return transformed matrix
+		a3real4x4SetReal4x4(spatialPose->transformMat.m, localMatrix);
+
+		return 1; //Success <3
+
+
 
 //-----------------------------------------------------------------------------
 //****END-TO-DO-PROJECT-2
