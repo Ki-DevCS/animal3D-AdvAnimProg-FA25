@@ -42,11 +42,6 @@ static inline void a3kinematicsSolveForwardSingle(const a3_HierarchyState* hiera
 		hierarchyState->localSpace->hpose_base[index].transformMat.m
 	);
 
-	//Fixed local space from call to member access
-	hierarchyState->objectSpace->hpose_base[index].transformMat
-		= hierarchyState->localSpace->hpose_base[index].transformMat;
-
-
 //-----------------------------------------------------------------------------
 //****END-TO-DO-PROJECT-2
 //-----------------------------------------------------------------------------
@@ -57,7 +52,10 @@ static inline void a3kinematicsSolveForwardRoot(const a3_HierarchyState* hierarc
 //****TO-DO-ANIM-PROJECT-2: IMPLEMENT ME
 //-----------------------------------------------------------------------------
 
-
+	//1) Fixed local space from call to member access
+	//2) Moved from SolveForwardSingle to SolveFowardRoot
+	hierarchyState->objectSpace->hpose_base[index].transformMat
+		= hierarchyState->localSpace->hpose_base[index].transformMat;
 
 //-----------------------------------------------------------------------------
 //****END-TO-DO-PROJECT-2
@@ -80,6 +78,8 @@ a3i32 a3kinematicsSolveForwardPartial(const a3_HierarchyState* hierarchyState, c
 //****TO-DO-ANIM-PROJECT-2: IMPLEMENT ME
 //-----------------------------------------------------------------------------
 
+		//TODO : fix for clerity. There appears to be functions called that are either unnesssecary or inneficient.
+		//return if time permits
 		//fixed - made unsigned int
 		a3ui32 nodeIndex;
 
@@ -244,8 +244,9 @@ void a3kinematicsUpdateHierarchyStateSkin(a3_HierarchyState* activeHS,
 //-----------------------------------------------------------------------------
 //****TO-DO-ANIM-PROJECT-2: IMPLEMENT ME
 //-----------------------------------------------------------------------------
-
-
+		a3hierarchyStateUpdateLocalInverse(activeHS);
+		a3hierarchyStateUpdateObjectInverse(activeHS);
+		a3hierarchyStateUpdateObjectBindToCurrent(activeHS, baseHS);
 
 //-----------------------------------------------------------------------------
 //****END-TO-DO-PROJECT-2

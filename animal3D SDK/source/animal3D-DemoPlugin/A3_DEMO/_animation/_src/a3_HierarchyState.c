@@ -113,7 +113,7 @@ a3i32 a3hierarchyPoseGroupLoadBinary(a3_HierarchyPoseGroup* poseGroup, a3_FileSt
 //****TO-DO-ANIM-OPTIONAL: IMPLEMENT ME
 //-----------------------------------------------------------------------------
 				
-
+	//todo : if time permits PoseGroupLoadBinary
 
 //-----------------------------------------------------------------------------
 //****END-TO-DO-OPTIONAL
@@ -141,7 +141,7 @@ a3i32 a3hierarchyPoseGroupSaveBinary(a3_HierarchyPoseGroup const* poseGroup, a3_
 //****TO-DO-ANIM-OPTIONAL: IMPLEMENT ME
 //-----------------------------------------------------------------------------
 				
-
+	//todo : if Time Permits poseGroupSaveBinary
 
 //-----------------------------------------------------------------------------
 //****END-TO-DO-OPTIONAL
@@ -229,7 +229,7 @@ a3i32 a3hierarchyStateUpdateLocalInverse(const a3_HierarchyState* state)
 //****TO-DO-ANIM-PROJECT-2: IMPLEMENT ME
 //-----------------------------------------------------------------------------
 		
-
+		//todo : UpdateLocalInverse
 
 //-----------------------------------------------------------------------------
 //****END-TO-DO-PROJECT-2
@@ -276,7 +276,7 @@ a3i32 a3hierarchyStateUpdateObjectBindToCurrent(const a3_HierarchyState* state, 
 //****TO-DO-ANIM-PROJECT-2: IMPLEMENT ME
 //-----------------------------------------------------------------------------
 		
-
+		//todo : ObjectBindToCurrent
 
 //-----------------------------------------------------------------------------
 //****END-TO-DO-PROJECT-2
@@ -298,7 +298,7 @@ a3i32 a3hierarchyPoseGroupLoadHTR(a3_HierarchyPoseGroup* poseGroup_out, a3_Hiera
 //****TO-DO-ANIM-PROJECT-2: IMPLEMENT ME
 //-----------------------------------------------------------------------------
 		
-
+		//todo : PoseGroupLoad
 
 //-----------------------------------------------------------------------------
 //****END-TO-DO-PROJECT-2
@@ -316,7 +316,7 @@ a3i32 a3hierarchyPoseGroupLoadBVH(a3_HierarchyPoseGroup* poseGroup_out, a3_Hiera
 //****TO-DO-ANIM-OPTIONAL: IMPLEMENT ME
 //-----------------------------------------------------------------------------
 
-
+		//todo : If Time Permits; GroupLoadBPV
 
 //-----------------------------------------------------------------------------
 //****END-TO-DO-OPTIONAL
@@ -334,7 +334,7 @@ a3i32 a3hierarchyPoseGroupSaveHTR(const a3_HierarchyPoseGroup* poseGroup_in, con
 //****TO-DO-ANIM-OPTIONAL: IMPLEMENT ME
 //-----------------------------------------------------------------------------
 
-
+			//todo : If Time Permits; GroupLoadHTR
 
 //-----------------------------------------------------------------------------
 //****END-TO-DO-OPTIONAL
@@ -352,7 +352,7 @@ a3i32 a3hierarchyPoseGroupSaveBVH(const a3_HierarchyPoseGroup* poseGroup_in, con
 //****TO-DO-ANIM-OPTIONAL: IMPLEMENT ME
 //-----------------------------------------------------------------------------
 
-
+			//todo : If Time Permits; GroupLoadBVH
 
 //-----------------------------------------------------------------------------
 //****END-TO-DO-OPTIONAL

@@ -36,7 +36,7 @@ a3i32 a3spatialPoseConvert(a3_SpatialPose* spatialPose, const a3_SpatialPoseChan
 //****TO-DO-ANIM-PROJECT-2: IMPLEMENT ME
 //-----------------------------------------------------------------------------
 		
-
+		//todo : a3SpatialPoseConvert
 
 //-----------------------------------------------------------------------------
 //****END-TO-DO-PROJECT-2
