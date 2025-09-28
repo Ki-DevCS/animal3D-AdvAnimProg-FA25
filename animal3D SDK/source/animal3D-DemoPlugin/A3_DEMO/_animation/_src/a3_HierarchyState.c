@@ -310,8 +310,46 @@ a3i32 a3hierarchyPoseGroupLoadHTR(a3_HierarchyPoseGroup* poseGroup_out, a3_Hiera
 //-----------------------------------------------------------------------------
 //****TO-DO-ANIM-PROJECT-2: IMPLEMENT ME
 //-----------------------------------------------------------------------------
-		
-		//todo : PoseGroupLoad
+
+		//Fail Condition
+		if (!(poseGroup_out && !poseGroup_out->hierarchy &&
+			hierarchy_out && !hierarchy_out->nodes &&
+			resourceFilePath && *resourceFilePath))
+			return -1;
+
+		printf("<LoadHTR> All Files Exist\n");
+
+		//File IO
+		FILE* file = fopen((const char*)resourceFilePath, "r");
+		if (file == NULL)
+		{
+			// Could not open the file, return error
+			return -1;
+		}
+
+		printf("<LoadHTR> File IO Successfully opened\n");
+
+		//Sectioning
+		enum Section
+		{
+			Section_None = 0,
+			Section_Header,
+			Section_Segments,
+			Section_BasePosition,
+			Section_FrameData
+		}
+		currentSection = Section_None;
+
+		//Spec Variables
+		a3ui32 numSegments = 0;
+		a3ui32 numFrames = 1;
+		a3real frameRate = 30.0f; //simple default, can be overriden
+		a3_SpatialPoseEulerOrder fileEulerOrder = a3poseEulerOrder_xyz; //safe default
+
+		//buffer
+		a3byte line[1024];
+		(void)line; //allow build
+
 
 //-----------------------------------------------------------------------------
 //****END-TO-DO-PROJECT-2
