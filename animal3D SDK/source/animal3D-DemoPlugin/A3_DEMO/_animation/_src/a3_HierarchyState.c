@@ -224,17 +224,23 @@ a3i32 a3hierarchyStateUpdateLocalInverse(const a3_HierarchyState* state)
 {
 	if (state && state->hierarchy)
 	{
-		a3index i = 0;
+		a3ui32 nodeIndex = 0;
 //-----------------------------------------------------------------------------
 //****TO-DO-ANIM-PROJECT-2: IMPLEMENT ME
 //-----------------------------------------------------------------------------
 		
-		//todo : UpdateLocalInverse
+		for (nodeIndex = 0; nodeIndex < state->hierarchy->numNodes; ++nodeIndex)
+		{
+			a3real4x4TransformInverse(
+				state->localSpaceInv->hpose_base[nodeIndex].transformMat.m,
+				state->localSpace->hpose_base[nodeIndex].transformMat.m
+			);
+		}
 
 //-----------------------------------------------------------------------------
 //****END-TO-DO-PROJECT-2
 //-----------------------------------------------------------------------------
-		return i;
+		return (a3i32)nodeIndex;
 	}
 	return -1;
 }
@@ -261,7 +267,7 @@ a3i32 a3hierarchyStateUpdateObjectInverse(const a3_HierarchyState* state)
 //-----------------------------------------------------------------------------
 //****END-TO-DO-PROJECT-2
 //-----------------------------------------------------------------------------
-		return nodeIndex;
+		return (a3i32)nodeIndex;
 	}
 	return -1;
 }
@@ -271,17 +277,24 @@ a3i32 a3hierarchyStateUpdateObjectBindToCurrent(const a3_HierarchyState* state, 
 {
 	if (state && state->hierarchy && state_bind && state_bind->hierarchy)
 	{
-		a3index i = 0;
+		a3ui32 count = 0;
 //-----------------------------------------------------------------------------
 //****TO-DO-ANIM-PROJECT-2: IMPLEMENT ME
 //-----------------------------------------------------------------------------
 		
-		//todo : ObjectBindToCurrent
-
+		for (count = 0; count < state->hierarchy->numNodes; ++count)
+		{
+			a3real4x4Product
+			(
+				state->objectSpaceBindToCurrent->hpose_base[count].transformMat.m,
+				state->objectSpace->hpose_base[count].transformMat.m,
+				state_bind->objectSpaceInv->hpose_base[count].transformMat.m
+			);
+		}
 //-----------------------------------------------------------------------------
 //****END-TO-DO-PROJECT-2
 //-----------------------------------------------------------------------------
-		return i;
+		return (a3i32)count;
 	}
 	return -1;
 }
