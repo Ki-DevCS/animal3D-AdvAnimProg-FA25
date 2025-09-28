@@ -340,7 +340,7 @@ static inline void trimWhiteSpace(a3byte* text)
 
 }
 
-//function to identify if the input string has a prefix regardless of capitalisation
+//Helper function to identify if the input string has a prefix regardless of capitalisation
 static inline a3i32 caseInsensitivePrefixMatch
 (
 	const a3byte* text,
@@ -414,7 +414,94 @@ a3i32 a3hierarchyPoseGroupLoadHTR(a3_HierarchyPoseGroup* poseGroup_out, a3_Hiera
 
 		//buffer
 		a3byte line[1024];
-		(void)line; //allow build
+		//(void)line; //allow build
+
+		while (fgets(line, sizeof(line), file))
+		{
+			//1) Trim White Space
+			trimWhiteSpace(line);
+
+			if (!line[0])
+				continue;
+
+			//2) Skip Comments
+			if
+			(
+				line[0] == '#' ||
+				line[0] == ';' ||
+				line[0] == '/' &&
+				line[1] == '/'
+			)
+				continue;
+
+			//3) Detect Section Headers
+			if (line[0] == '[')
+			{
+				if
+					(
+						caseInsensitivePrefixMatch
+						(
+							(const a3byte*)line,
+							(const a3byte*)"[Header]"
+						)
+					)
+					currentSection = Section_Header;
+
+				else if
+					(
+						caseInsensitivePrefixMatch
+						(
+							(const a3byte*)line,
+							(const a3byte*)"[Segments]"
+						)
+					)
+					currentSection = Section_Segments;
+
+				else if
+					(
+						caseInsensitivePrefixMatch
+						(
+							(const a3byte*)line,
+							(const a3byte*)"[BasePosition]"
+						)
+					)
+					currentSection = Section_BasePosition;
+
+				else if
+					(
+						caseInsensitivePrefixMatch
+						(
+							(const a3byte*)line,
+							(const a3byte*)"[FrameData]"
+						)
+					)
+					currentSection = Section_FrameData;
+
+				else
+					currentSection = Section_None;
+
+				continue;
+
+				//4) Parse Sections
+				switch(currentSection)
+				{
+					case Section_Header:
+						break;
+
+					case Section_Segments:
+						break;
+
+					case Section_BasePosition:
+						break;
+
+					case Section_FrameData:
+							break;
+
+					default:
+						break;
+				}
+			}
+		}
 
 //-----------------------------------------------------------------------------
 //****END-TO-DO-PROJECT-2
