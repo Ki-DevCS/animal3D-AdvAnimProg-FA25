@@ -24,6 +24,8 @@
 
 #include "../a3_Kinematics.h"
 
+#include "../../../../animal3D-DemoPlayerApp/a3_app_utils/Win32/a3_app_application.h"
+
 
 //-----------------------------------------------------------------------------
 
@@ -34,7 +36,15 @@ static inline void a3kinematicsSolveForwardSingle(const a3_HierarchyState* hiera
 //****TO-DO-ANIM-PROJECT-2: IMPLEMENT ME
 //-----------------------------------------------------------------------------
 
+	a3real4x4Product
+	(
+		hierarchyState->objectSpace->hpose_base[index].transformMat.m,
+		hierarchyState->objectSpace->hpose_base[parentIndex].transformMat.m,
+		hierarchyState->localSpace->hpose_base[index].transformMat.m
+	);
 
+		hierarchyState->objectSpace->hpose_base[index].transformMat
+		= hierarchyState->localSpace(0)->hpose_base[index].transformMat;
 
 //-----------------------------------------------------------------------------
 //****END-TO-DO-PROJECT-2
@@ -69,7 +79,32 @@ a3i32 a3kinematicsSolveForwardPartial(const a3_HierarchyState* hierarchyState, c
 //****TO-DO-ANIM-PROJECT-2: IMPLEMENT ME
 //-----------------------------------------------------------------------------
 
+		a3i32 nodeIndex;
 
+		for (nodeIndex = firstIndex; nodeIndex < nodeCount; ++nodeIndex)
+		{
+			if (hierarchyState->hierarchy->nodes[nodeIndex].parentIndex < 0)
+			{
+				//! This is Root
+				a3kinematicsSolveForwardRoot
+				(
+					hierarchyState,
+					hierarchyState->hierarchy->nodes[nodeIndex].index
+				);
+			}
+
+			else
+			{
+				//! This is not root
+				a3kinematicsSolveForwardPartial
+				(
+					hierarchyState,
+					hierarchyState->hierarchy->nodes[nodeIndex].index,
+					hierarchyState->hierarchy->nodes[nodeIndex].parentIndex
+				);
+
+			}
+		}
 
 //-----------------------------------------------------------------------------
 //****END-TO-DO-PROJECT-2
