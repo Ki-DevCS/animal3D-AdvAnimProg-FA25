@@ -340,6 +340,34 @@ static inline void trimWhiteSpace(a3byte* text)
 
 }
 
+//function to identify if the input string has a prefix regardless of capitalisation
+static inline a3i32 caseInsensitivePrefixMatch
+(
+	const a3byte* text,
+	const a3byte* prefix
+)
+{
+	while (*prefix && *text)
+	{
+		a3byte currentCharacter = *text;
+		a3byte expectedCharacter = *prefix;
+
+		//force both to lower case
+		if (currentCharacter >= 'A' && currentCharacter <= 'Z')
+			currentCharacter += 'a' - 'A';
+
+		if (expectedCharacter >= 'A' && expectedCharacter <= 'Z')
+			expectedCharacter += 'a' - 'A';
+
+		if (currentCharacter != expectedCharacter)
+			return 0; //identify mismatch
+
+		++text;
+		++prefix;
+	}
+	return (*prefix == '\0');
+}
+
 // load HTR file, read and store complete pose group and hierarchy
 a3i32 a3hierarchyPoseGroupLoadHTR(a3_HierarchyPoseGroup* poseGroup_out, a3_Hierarchy* hierarchy_out, const a3byte* resourceFilePath)
 {
