@@ -302,16 +302,54 @@ a3i32 a3hierarchyStateUpdateObjectBindToCurrent(const a3_HierarchyState* state, 
 
 //-----------------------------------------------------------------------------
 
+//Helper Function to Remove spaces, tabs, and newlines from the beginning and end of a string
+static inline void trimWhiteSpace(a3byte* text)
+{
+	//Trim Left
+	a3byte* firstVisibleChar = text;
+
+	while
+		(
+			*firstVisibleChar == ' ' ||
+			*firstVisibleChar == '\t' ||
+			*firstVisibleChar == '\r' ||
+			*firstVisibleChar == '\n'
+		)
+	{
+		++firstVisibleChar;
+	}
+
+	if (firstVisibleChar != text)
+	{
+		memmove(text, firstVisibleChar, strlen(firstVisibleChar) + 1);
+	}
+
+	//Trim Right
+	size_t length = strlen(text);
+
+	while (length > 0 &&
+		(
+			text[length - 1] == ' ' ||
+			text[length - 1] == '\t' ||
+			text[length - 1] == '\r' ||
+			text[length - 1] == '\n')
+		)
+	{
+		text[--length] = '\0';
+	}
+
+}
+
 // load HTR file, read and store complete pose group and hierarchy
 a3i32 a3hierarchyPoseGroupLoadHTR(a3_HierarchyPoseGroup* poseGroup_out, a3_Hierarchy* hierarchy_out, const a3byte* resourceFilePath)
 {
 	if (poseGroup_out && !poseGroup_out->hierarchy && hierarchy_out && !hierarchy_out->nodes && resourceFilePath && *resourceFilePath)
 	{
-//-----------------------------------------------------------------------------
-//****TO-DO-ANIM-PROJECT-2: IMPLEMENT ME
-//-----------------------------------------------------------------------------
+		//-----------------------------------------------------------------------------
+		//****TO-DO-ANIM-PROJECT-2: IMPLEMENT ME
+		//-----------------------------------------------------------------------------
 
-		//Fail Condition
+				//Fail Condition
 		if (!(poseGroup_out && !poseGroup_out->hierarchy &&
 			hierarchy_out && !hierarchy_out->nodes &&
 			resourceFilePath && *resourceFilePath))
@@ -349,7 +387,6 @@ a3i32 a3hierarchyPoseGroupLoadHTR(a3_HierarchyPoseGroup* poseGroup_out, a3_Hiera
 		//buffer
 		a3byte line[1024];
 		(void)line; //allow build
-
 
 //-----------------------------------------------------------------------------
 //****END-TO-DO-PROJECT-2
