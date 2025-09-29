@@ -368,6 +368,52 @@ static inline a3i32 caseInsensitivePrefixMatch
 	return (*prefix == '\0');
 }
 
+//Helper function to parse Euler Order
+static a3_SpatialPoseEulerOrder parseEulerOrder(const a3byte* text)
+{
+	//failstate
+	if (!text)
+		return a3poseEulerOrder_xyz;
+
+	//Getting the X, Y, and Z variables regardless of case
+	a3byte first =
+		(text[0] >= 'a' && text[0] <= 'z')
+		?
+		(text[0] - 'a' + 'A') : text[0];
+
+	a3byte second =
+		(text[1] >= 'a' && text[1] <= 'z')
+		?
+		(text[1] - 'a' + 'A') : text[1];
+
+	a3byte third =
+		(text[2] >= 'a' && text[2] <= 'z')
+		?
+		(text[2] - 'a' + 'A') : text[2];
+
+	//Choosing the Euler Order
+	if (first == 'X' && second == 'Y' && third == 'Z')
+		return a3poseEulerOrder_xyz; //!
+
+	if (first == 'Z' && second == 'Y' && third == 'X')
+		return a3poseEulerOrder_zyx; //!
+
+	if (first == 'Y' && second == 'X' && third == 'Z')
+		return a3poseEulerOrder_yxz; //!
+
+	if (first == 'Z' && second == 'X' && third == 'Y')
+		return a3poseEulerOrder_zxy; //!
+
+	if (first == 'X' && second == 'Z' && third == 'Y')
+		return a3poseEulerOrder_xzy; //!
+
+	if (first == 'Y' && second == 'Z' && third == 'X')
+		return a3poseEulerOrder_yzx;
+
+	//Default Fallback
+	return a3poseEulerOrder_xyz;
+}
+
 // load HTR file, read and store complete pose group and hierarchy
 a3i32 a3hierarchyPoseGroupLoadHTR(a3_HierarchyPoseGroup* poseGroup_out, a3_Hierarchy* hierarchy_out, const a3byte* resourceFilePath)
 {
@@ -438,13 +484,13 @@ a3i32 a3hierarchyPoseGroupLoadHTR(a3_HierarchyPoseGroup* poseGroup_out, a3_Hiera
 			if (line[0] == '[')
 			{
 				if
+				(
+					caseInsensitivePrefixMatch
 					(
-						caseInsensitivePrefixMatch
-						(
-							(const a3byte*)line,
-							(const a3byte*)"[Header]"
-						)
+						(const a3byte*)line,
+						(const a3byte*)"[Header]"
 					)
+				)
 					currentSection = Section_Header;
 
 				else if
@@ -486,6 +532,24 @@ a3i32 a3hierarchyPoseGroupLoadHTR(a3_HierarchyPoseGroup* poseGroup_out, a3_Hiera
 				switch(currentSection)
 				{
 					case Section_Header:
+						if (caseInsensitivePrefixMatch((const a3byte*)line, (const a3byte*)"NumSegments")) 
+						{
+							sscanf(line, "%*[^0-9]%u", &numSegments);
+						}
+						else if (caseInsensitivePrefixMatch((const a3byte*)line, (const a3byte*)"NumFrames")) 
+						{
+							sscanf(line, "%*[^0-9]%u", &numFrames);
+						}
+						else if (caseInsensitivePrefixMatch((const a3byte*)line, (const a3byte*)"DataFrameRate"))
+						{
+							sscanf(line, "%*[^0-9.-]%f", &frameRate);
+						}
+						else if (caseInsensitivePrefixMatch((const a3byte*)line, (const a3byte*)"EulerRotationOrder")) 
+						{
+							a3byte orderString[8] = { 0 };
+							if (sscanf(line, "%*[^A-Za-z]%7s", orderString) == 1)
+								fileEulerOrder = parseEulerOrder(orderString);
+						}
 						break;
 
 					case Section_Segments:
