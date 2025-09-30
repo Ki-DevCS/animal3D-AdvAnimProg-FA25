@@ -81,7 +81,9 @@ a3i32 a3kinematicsSolveForwardPartial(const a3_HierarchyState* hierarchyState, c
 		//TODO : fix for clerity. There appears to be functions called that are either unnesssecary or inneficient.
 		//return if time permits
 		//fixed - made unsigned int
-		a3ui32 nodeIndex;
+
+		/*
+		 *a3ui32 nodeIndex;
 
 		for (nodeIndex = firstIndex; nodeIndex < nodeCount; ++nodeIndex)
 		{
@@ -107,6 +109,28 @@ a3i32 a3kinematicsSolveForwardPartial(const a3_HierarchyState* hierarchyState, c
 
 			}
 		}
+		*/
+
+		a3ui32 const end = firstIndex + nodeCount;
+		for (a3ui32 i = firstIndex; i < end; ++i)
+		{
+			a3i32 const parent = hierarchyState->hierarchy->nodes[i].parentIndex;
+			if (parent >= 0)
+			{
+				// obj[i] = obj[parent] * local[i]
+				a3real4x4Product(
+					hierarchyState->objectSpace->hpose_base[i].transformMat.m,
+					hierarchyState->objectSpace->hpose_base[parent].transformMat.m,
+					hierarchyState->localSpace->hpose_base[i].transformMat.m);
+			}
+			else
+			{
+				// root: copy local to object
+				hierarchyState->objectSpace->hpose_base[i].transformMat =
+					hierarchyState->localSpace->hpose_base[i].transformMat;
+			}
+		}
+		return 1;
 
 //-----------------------------------------------------------------------------
 //****END-TO-DO-PROJECT-2
@@ -185,24 +209,22 @@ void a3kinematicsUpdateHierarchyStateFK(a3_HierarchyState* activeHS,
 //-----------------------------------------------------------------------------
 //****TO-DO-ANIM-PROJECT-2: IMPLEMENT ME
 //-----------------------------------------------------------------------------
-		a3hierarchyPoseConcat
-		(
-			activeHS->localSpace, //GOAL : Local Pose
+	// 1) Pose concat
+		a3hierarchyPoseConcat(
+			activeHS->localSpace,
+			baseHS->animPose,
 			activeHS->animPose,
-			baseHS->localSpace,
-			activeHS->hierarchy->numNodes
-		);
+			activeHS->hierarchy->numNodes);
 
-		a3hierarchyPoseConvert
-		(
+		// 2) Pose -> local-space matrices
+		a3hierarchyPoseConvert(
 			activeHS->localSpace,
 			activeHS->hierarchy->numNodes,
 			poseGroup->channel,
-			poseGroup->order
-		);
+			poseGroup->order);
 
+		// 3) FK across hierarchy: builds objectSpace from localSpace
 		a3kinematicsSolveForward(activeHS);
-
 
 //-----------------------------------------------------------------------------
 //****END-TO-DO-PROJECT-2

@@ -255,14 +255,15 @@ a3i32 a3hierarchyStateUpdateObjectInverse(const a3_HierarchyState* state)
 //****TO-DO-ANIM-PROJECT-2: IMPLEMENT ME
 //-----------------------------------------------------------------------------
 
-		for(nodeIndex = 0; nodeIndex < state->hierarchy->numNodes; ++nodeIndex)
+		for (nodeIndex = 0; nodeIndex < state->hierarchy->numNodes; ++nodeIndex)
 		{
-			a3real4x4TransformInverse
-			(
+			//Inverted objectspace, store in objectspaceINV
+			a3real4x4TransformInverse(
 				state->objectSpaceInv->hpose_base[nodeIndex].transformMat.m,
-				state->objectSpaceInv->hpose_base[nodeIndex].transformMat.m
+				state->objectSpace->hpose_base[nodeIndex].transformMat.m
 			);
 		}
+		return (a3i32)nodeIndex;
 
 //-----------------------------------------------------------------------------
 //****END-TO-DO-PROJECT-2

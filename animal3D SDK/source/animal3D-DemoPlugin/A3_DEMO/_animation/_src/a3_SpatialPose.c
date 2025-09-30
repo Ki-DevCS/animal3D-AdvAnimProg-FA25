@@ -43,6 +43,9 @@ static inline void a3quatInverse_(a3real4p q_out, const a3real4p q)
 	a3real4ProductS(q_out, tmp, inv);
 }
 
+//Another quick helper maths function
+static inline a3real a3fabs(a3real x) { return x < 0 ? -x : x; }
+
 // convert single node pose to matrix
 a3i32 a3spatialPoseConvert(a3_SpatialPose* spatialPose, const a3_SpatialPoseChannel channel, const a3_SpatialPoseEulerOrder order)
 {
@@ -52,47 +55,39 @@ a3i32 a3spatialPoseConvert(a3_SpatialPose* spatialPose, const a3_SpatialPoseChan
 //****TO-DO-ANIM-PROJECT-2: IMPLEMENT ME
 //-----------------------------------------------------------------------------
 		
-		//todo : implement channel and order if time permits
+		if (!spatialPose)
+			return -1;
 
-		//shh warnings :3
+		// (not used here, keep signature-compatible)
 		(void)channel;
 		(void)order;
 
-		//Matrix definition
-		a3real4x4 scaleMatrix;
-		a3real4x4 rotationMatrix;
-		a3real4x4 translationMatrix;
-		a3real4x4 TR_temp; 
-		a3real4x4 localMatrix;
+		// --- build S, R, T
+		a3real4x4 S, R, T, TR, M;
 
-		//Matrix identity set
-		a3real4x4SetIdentity(scaleMatrix);
-		a3real4x4SetIdentity(rotationMatrix);
-		a3real4x4SetIdentity(translationMatrix);
+		// scale: make sure we don't zero-out the object
+		const a3real sx = (a3fabs(spatialPose->scale.x) < a3real_epsilon) ? a3real_one : spatialPose->scale.x;
+		const a3real sy = (a3fabs(spatialPose->scale.y) < a3real_epsilon) ? a3real_one : spatialPose->scale.y;
+		const a3real sz = (a3fabs(spatialPose->scale.z) < a3real_epsilon) ? a3real_one : spatialPose->scale.z;
+		a3real4x4SetIdentity(S);
+		a3real4x4SetNonUnif(S, sx, sy, sz);
 
-		//Build Scale Matrix
-		a3real4x4SetNonUnif(scaleMatrix,
-			spatialPose->scale.x,
-			spatialPose->scale.y,
-			spatialPose->scale.z);
+		// rotation: keep quaternion unit before converting
+		a3real4Normalize(spatialPose->rotate.v);
+		a3quatConvertToMat4(R, spatialPose->rotate.v);
 
-		//Build Rotation Matrix
-		a3quatConvertToMat4(rotationMatrix, spatialPose->rotate.v);
+		// translation: column-major (put in last column)
+		a3real4x4SetIdentity(T);
+		T[0][3] = spatialPose->translate.x;
+		T[1][3] = spatialPose->translate.y;
+		T[2][3] = spatialPose->translate.z;
 
-		//Build Translation Matrix
-		a3real4x4SetIdentity(translationMatrix);
-		translationMatrix[3][0] = spatialPose->translate.x;  // tx
-		translationMatrix[3][1] = spatialPose->translate.y;  // ty
-		translationMatrix[3][2] = spatialPose->translate.z;  // tz
+		// model = T * R * S  (assumes Product(out, A, B) => out = A * B)
+		a3real4x4Product(TR, T, R);
+		a3real4x4Product(M, TR, S);
 
-		//matrix calculation
-		a3real4x4Product(TR_temp, translationMatrix, rotationMatrix);
-		a3real4x4Product(localMatrix, TR_temp, scaleMatrix);
-
-		//return transformed matrix
-		a3real4x4SetReal4x4(spatialPose->transformMat.m, localMatrix);
-
-		return 1; //Success <3
+		a3real4x4SetReal4x4(spatialPose->transformMat.m, M);
+		return 1;
 
 
 
