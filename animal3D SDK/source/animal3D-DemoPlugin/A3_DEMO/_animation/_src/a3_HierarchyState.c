@@ -414,6 +414,55 @@ static a3_SpatialPoseEulerOrder parseEulerOrder(const a3byte* text)
 	return a3poseEulerOrder_xyz;
 }
 
+//Helper function to compares strings regardless of case
+static inline a3i32 equalsIgnoreCase(const a3byte* firstString, const a3byte* secondString)
+{
+	// Walk through both strings one character at a time
+	while (*firstString && *secondString)
+	{
+		a3byte charA = *firstString;
+		a3byte charB = *secondString;
+
+		// Convert uppercase A–Z to lowercase a–z
+		if (charA >= 'A' && charA <= 'Z')
+			charA += 'a' - 'A';
+		if (charB >= 'A' && charB <= 'Z')
+			charB += 'a' - 'A';
+
+		// If characters don’t match, strings are not equal
+		if (charA != charB)
+			return 0;
+
+		// Advance to the next characters
+		++firstString;
+		++secondString;
+	}
+
+	// Both must end at the same time for a full match
+	return (*firstString == '\0' && *secondString == '\0');
+}
+
+//Helper function to parse a line of text in Field 1 and Field 2
+static inline a3i32 parseTwoCSV(const a3byte* line, a3byte* outField1, a3byte* outField2, a3i32 maxLen)
+{
+	a3i32 fieldsRead = sscanf(
+		(const char*)line,
+		" %63[^,] , %63[^,\r\n]",
+		outField1,
+		outField2
+	);
+
+	// If both fields were found, clean up any surrounding whitespace
+	if (fieldsRead == 2)
+	{
+		trimWhiteSpace(outField1);
+		trimWhiteSpace(outField2);
+	}
+
+	// Return the number of successfully parsed fields (0, 1, or 2)
+	return fieldsRead;
+}
+
 // load HTR file, read and store complete pose group and hierarchy
 a3i32 a3hierarchyPoseGroupLoadHTR(a3_HierarchyPoseGroup* poseGroup_out, a3_Hierarchy* hierarchy_out, const a3byte* resourceFilePath)
 {
