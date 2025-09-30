@@ -602,9 +602,111 @@ a3i32 a3hierarchyPoseGroupLoadHTR(a3_HierarchyPoseGroup* poseGroup_out, a3_Hiera
 						break;
 
 					case Section_Segments:
+						{
+							enum { kMaxSegmentsScratch = 1024 };
+							static a3byte   segChildScratch[kMaxSegmentsScratch][64];
+							static a3byte   segParentScratch[kMaxSegmentsScratch][64];
+							static a3ui32   segScratchCount = 0;
+							static a3boolean segCollecting = 0;
+
+							if (!segCollecting) 
+							{
+								segScratchCount = 0;
+								segCollecting = 1;
+							}
+
+							if (line[0] != '[')
+							{
+								a3byte child[64], parent[64];
+								if (parseTwoCSV(line, child, parent, 63) == 2)
+								{
+									// Save this pair into scratch arrays
+									if (segScratchCount < kMaxSegmentsScratch) {
+										strncpy((char*)segChildScratch[segScratchCount], (const char*)child, 63);
+										segChildScratch[segScratchCount][63] = '\0';
+										strncpy((char*)segParentScratch[segScratchCount], (const char*)parent, 63);
+										segParentScratch[segScratchCount][63] = '\0';
+										++segScratchCount;
+									}
+								}
+							}
+
+							else
+							{
+								a3ui32 nodeCount = (numSegments > 0) ? numSegments : segScratchCount;
+								if (nodeCount > segScratchCount) nodeCount = segScratchCount;
+
+								//Allocate Hierarchy Nodes
+								if (nodeCount == 0) 
+								{
+									fclose(file);
+									return -1;
+								}
+								hierarchy_out->nodes = (a3_HierarchyNode*)calloc(nodeCount, sizeof(a3_HierarchyNode));
+								hierarchy_out->numNodes = nodeCount;
+
+								//Copy names into Nodes
+								for (a3ui32 i = 0; i < nodeCount; ++i)
+								{
+									// name
+									strncpy((char*)hierarchy_out->nodes[i].name, 
+									(const char*)segChildScratch[i], sizeof(hierarchy_out->nodes[i].name) - 1);
+									hierarchy_out->nodes[i].name[sizeof(hierarchy_out->nodes[i].name) - 1] = '\0';
+
+									// default parent to -1 (root) until resolved
+									hierarchy_out->nodes[i].parentIndex = -1;
+								}
+
+								for (a3ui32 i = 0; i < nodeCount; ++i)
+								{
+									//File stated Parent name
+									const a3byte* parentNameFromFile = segParentScratch[i];
+
+									//Case to handle if no parent or no root
+									if (parentNameFromFile[0] == '\0' ||
+										equalsIgnoreCase(parentNameFromFile, (const a3byte*)"NONE") ||
+										equalsIgnoreCase(parentNameFromFile, (const a3byte*)"GLOBAL") ||
+										equalsIgnoreCase(parentNameFromFile, (const a3byte*)"ROOT") ||
+										equalsIgnoreCase(parentNameFromFile, (const a3byte*)"-1"))
+									{
+										hierarchy_out->nodes[i].parentIndex = -1;   // stays root
+										continue;
+									}
+
+									//Case to handle searching for parent by name
+									a3i32 parentIndex = -1;  // default: not found
+									for (a3ui32 k = 0; k < nodeCount; ++k)
+									{
+										if (equalsIgnoreCase(hierarchy_out->nodes[k].name, parentNameFromFile))
+										{
+											parentIndex = (a3i32)k;
+											break;  // found it
+										}
+									}
+
+									//Store Output
+									hierarchy_out->nodes[i].parentIndex = parentIndex;
+								}
+
+								//reset function
+								segCollecting = 0;
+
+								//small if statement to set the new section header now so we loop smoother
+								if (caseInsensitivePrefixMatch((const a3byte*)line, (const a3byte*)"[BasePosition]"))
+									currentSection = Section_BasePosition;
+								else if (caseInsensitivePrefixMatch((const a3byte*)line, (const a3byte*)"[FrameData]"))
+									currentSection = Section_FrameData;
+								else
+									currentSection = Section_None;
+								
+							}
+						}
 						break;
 
 					case Section_BasePosition:
+						{
+							
+						}
 						break;
 
 					case Section_FrameData:
