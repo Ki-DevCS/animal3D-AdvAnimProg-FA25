@@ -507,6 +507,12 @@ a3i32 a3hierarchyPoseGroupLoadHTR(a3_HierarchyPoseGroup* poseGroup_out, a3_Hiera
 		a3real frameRate = 30.0f; //simple default, can be overriden
 		a3_SpatialPoseEulerOrder fileEulerOrder = a3poseEulerOrder_xyz; //safe default
 
+		enum { kMaxSegmentsScratch = 1024 };
+		static a3byte   segChildScratch[kMaxSegmentsScratch][64];
+		static a3byte   segParentScratch[kMaxSegmentsScratch][64];
+		static a3ui32   segScratchCount = 0;
+		static a3boolean segCollecting = 0;
+
 		//buffer
 		a3byte line[1024];
 		//(void)line; //allow build
@@ -529,285 +535,363 @@ a3i32 a3hierarchyPoseGroupLoadHTR(a3_HierarchyPoseGroup* poseGroup_out, a3_Hiera
 			)
 				continue;
 
-			//3) Detect Section Headers
 			if (line[0] == '[')
 			{
-				if
-				(
-					caseInsensitivePrefixMatch
-					(
-						(const a3byte*)line,
-						(const a3byte*)"[Header]"
-					)
-				)
-					currentSection = Section_Header;
-
-				else if
-					(
-						caseInsensitivePrefixMatch
-						(
-							(const a3byte*)line,
-							(const a3byte*)"[Segments]"
-						)
-					)
-					currentSection = Section_Segments;
-
-				else if
-					(
-						caseInsensitivePrefixMatch
-						(
-							(const a3byte*)line,
-							(const a3byte*)"[BasePosition]"
-						)
-					)
-					currentSection = Section_BasePosition;
-
-				else if
-					(
-						caseInsensitivePrefixMatch
-						(
-							(const a3byte*)line,
-							(const a3byte*)"[FrameData]"
-						)
-					)
-					currentSection = Section_FrameData;
-
-				else
-					currentSection = Section_None;
-
-				continue;
-
-				//4) Parse Sections
-				switch(currentSection)
+				// --- if we were in [Segments], finalize what we collected BEFORE switching ---
+				if (currentSection == Section_Segments)
 				{
-					case Section_Header:
-						if (caseInsensitivePrefixMatch((const a3byte*)line, (const a3byte*)"NumSegments")) 
+					a3ui32 nodeCount = (numSegments > 0) ? numSegments : segScratchCount;
+					if (nodeCount > segScratchCount) nodeCount = segScratchCount;
+
+					if (nodeCount == 0) { fclose(file); return -1; }
+
+					hierarchy_out->nodes = (a3_HierarchyNode*)calloc(nodeCount, sizeof(a3_HierarchyNode));
+					hierarchy_out->numNodes = nodeCount;
+
+					// names
+					for (a3ui32 i = 0; i < nodeCount; ++i)
+					{
+						strncpy((char*)hierarchy_out->nodes[i].name, (const char*)segChildScratch[i],
+							sizeof(hierarchy_out->nodes[i].name) - 1);
+						hierarchy_out->nodes[i].name[sizeof(hierarchy_out->nodes[i].name) - 1] = '\0';
+						hierarchy_out->nodes[i].parentIndex = -1;
+					}
+					// parents
+					for (a3ui32 i = 0; i < nodeCount; ++i)
+					{
+						const a3byte* parentNameFromFile = segParentScratch[i];
+						if (parentNameFromFile[0] == '\0' ||
+							equalsIgnoreCase(parentNameFromFile, (const a3byte*)"NONE") ||
+							equalsIgnoreCase(parentNameFromFile, (const a3byte*)"GLOBAL") ||
+							equalsIgnoreCase(parentNameFromFile, (const a3byte*)"ROOT") ||
+							equalsIgnoreCase(parentNameFromFile, (const a3byte*)"-1"))
 						{
-							sscanf(line, "%*[^0-9]%u", &numSegments);
+							hierarchy_out->nodes[i].parentIndex = -1;
+							continue;
 						}
-						else if (caseInsensitivePrefixMatch((const a3byte*)line, (const a3byte*)"NumFrames")) 
-						{
-							sscanf(line, "%*[^0-9]%u", &numFrames);
-						}
-						else if (caseInsensitivePrefixMatch((const a3byte*)line, (const a3byte*)"DataFrameRate"))
-						{
-							sscanf(line, "%*[^0-9.-]%f", &frameRate);
-						}
-						else if (caseInsensitivePrefixMatch((const a3byte*)line, (const a3byte*)"EulerRotationOrder")) 
-						{
-							a3byte orderString[8] = { 0 };
-							if (sscanf(line, "%*[^A-Za-z]%7s", orderString) == 1)
-								fileEulerOrder = parseEulerOrder(orderString);
-						}
-						break;
+						a3i32 parentIndex = -1;
+						for (a3ui32 k = 0; k < nodeCount; ++k)
+							if (equalsIgnoreCase(hierarchy_out->nodes[k].name, parentNameFromFile)) { parentIndex = (a3i32)k; break; }
+						hierarchy_out->nodes[i].parentIndex = parentIndex;
+					}
 
-					case Section_Segments:
-						{
-							enum { kMaxSegmentsScratch = 1024 };
-							static a3byte   segChildScratch[kMaxSegmentsScratch][64];
-							static a3byte   segParentScratch[kMaxSegmentsScratch][64];
-							static a3ui32   segScratchCount = 0;
-							static a3boolean segCollecting = 0;
+					// reset scratch
+					segCollecting = 0;
+					segScratchCount = 0;
+				}
 
-							if (!segCollecting) 
-							{
-								segScratchCount = 0;
-								segCollecting = 1;
-							}
+				// --- now switch section based on header we just read ---
+				if (caseInsensitivePrefixMatch((const a3byte*)line, (const a3byte*)"[Header]"))              currentSection = Section_Header;
+				else if (caseInsensitivePrefixMatch((const a3byte*)line, (const a3byte*)"[Segments]"))       currentSection = Section_Segments;
+				else if (caseInsensitivePrefixMatch((const a3byte*)line, (const a3byte*)"[BasePosition]"))   currentSection = Section_BasePosition;
+				else if (caseInsensitivePrefixMatch((const a3byte*)line, (const a3byte*)"[FrameData]"))      currentSection = Section_FrameData;
+				else currentSection = Section_None;
 
-							if (line[0] != '[')
-							{
-								a3byte child[64], parent[64];
-								if (parseTwoCSV(line, child, parent, 63) == 2)
-								{
-									// Save this pair into scratch arrays
-									if (segScratchCount < kMaxSegmentsScratch) {
-										strncpy((char*)segChildScratch[segScratchCount], (const char*)child, 63);
-										segChildScratch[segScratchCount][63] = '\0';
-										strncpy((char*)segParentScratch[segScratchCount], (const char*)parent, 63);
-										segParentScratch[segScratchCount][63] = '\0';
-										++segScratchCount;
-									}
-								}
-							}
+				continue; // done with header line
+			}
 
-							else
-							{
-								a3ui32 nodeCount = (numSegments > 0) ? numSegments : segScratchCount;
-								if (nodeCount > segScratchCount) nodeCount = segScratchCount;
+			//4) Parse Sections
+			switch (currentSection)
+			{
+			case Section_Header:
+				if (caseInsensitivePrefixMatch((const a3byte*)line, (const a3byte*)"NumSegments"))
+				{
+					sscanf(line, "%*[^0-9]%u", &numSegments);
+				}
+				else if (caseInsensitivePrefixMatch((const a3byte*)line, (const a3byte*)"NumFrames"))
+				{
+					sscanf(line, "%*[^0-9]%u", &numFrames);
+				}
+				else if (caseInsensitivePrefixMatch((const a3byte*)line, (const a3byte*)"DataFrameRate"))
+				{
+					sscanf(line, "%*[^0-9.-]%f", &frameRate);
+				}
+				else if (caseInsensitivePrefixMatch((const a3byte*)line, (const a3byte*)"EulerRotationOrder"))
+				{
+					a3byte orderString[8] = { 0 };
+					if (sscanf(line, "%*[^A-Za-z]%7s", orderString) == 1)
+						fileEulerOrder = parseEulerOrder(orderString);
+				}
+				break;
 
-								//Allocate Hierarchy Nodes
-								if (nodeCount == 0) 
-								{
-									fclose(file);
-									return -1;
-								}
-								hierarchy_out->nodes = (a3_HierarchyNode*)calloc(nodeCount, sizeof(a3_HierarchyNode));
-								hierarchy_out->numNodes = nodeCount;
+			case Section_Segments:
+			{
+				if (!segCollecting) { segScratchCount = 0; segCollecting = 1; }
 
-								//Copy names into Nodes
-								for (a3ui32 i = 0; i < nodeCount; ++i)
-								{
-									// name
-									strncpy((char*)hierarchy_out->nodes[i].name, 
-									(const char*)segChildScratch[i], sizeof(hierarchy_out->nodes[i].name) - 1);
-									hierarchy_out->nodes[i].name[sizeof(hierarchy_out->nodes[i].name) - 1] = '\0';
+				//removed header since we put that somewhere else :3
+				a3byte child[64], parent[64];
+				if (parseTwoCSV(line, child, parent, 63) == 2)
+				{
+					if (segScratchCount < kMaxSegmentsScratch)
+					{
+						strncpy((char*)segChildScratch[segScratchCount], (const char*)child, 63);
+						segChildScratch[segScratchCount][63] = '\0';
+						strncpy((char*)segParentScratch[segScratchCount], (const char*)parent, 63);
+						segParentScratch[segScratchCount][63] = '\0';
+						++segScratchCount;
+					}
+				}
+			}
+			break;
 
-									// default parent to -1 (root) until resolved
-									hierarchy_out->nodes[i].parentIndex = -1;
-								}
+			case Section_BasePosition:
+			{
 
-								for (a3ui32 i = 0; i < nodeCount; ++i)
-								{
-									//File stated Parent name
-									const a3byte* parentNameFromFile = segParentScratch[i];
+				if (!poseGroup_out->hierarchy)
+				{
+					// tie the pose group to this hierarchy and allocate storage
+					if (a3hierarchyPoseGroupCreate(poseGroup_out, hierarchy_out, numFrames) <= 0)
+					{
+						fclose(file);
+						return -1;
+					}
 
-									//Case to handle if no parent or no root
-									if (parentNameFromFile[0] == '\0' ||
-										equalsIgnoreCase(parentNameFromFile, (const a3byte*)"NONE") ||
-										equalsIgnoreCase(parentNameFromFile, (const a3byte*)"GLOBAL") ||
-										equalsIgnoreCase(parentNameFromFile, (const a3byte*)"ROOT") ||
-										equalsIgnoreCase(parentNameFromFile, (const a3byte*)"-1"))
-									{
-										hierarchy_out->nodes[i].parentIndex = -1;   // stays root
-										continue;
-									}
+					// Use file’s Euler order for all nodes by default
+					for (a3ui32 i = 0; i < hierarchy_out->numNodes; ++i)
+						poseGroup_out->order[i] = fileEulerOrder;
 
-									//Case to handle searching for parent by name
-									a3i32 parentIndex = -1;  // default: not found
-									for (a3ui32 k = 0; k < nodeCount; ++k)
-									{
-										if (equalsIgnoreCase(hierarchy_out->nodes[k].name, parentNameFromFile))
-										{
-											parentIndex = (a3i32)k;
-											break;  // found it
-										}
-									}
-
-									//Store Output
-									hierarchy_out->nodes[i].parentIndex = parentIndex;
-								}
-
-								//reset function
-								segCollecting = 0;
-
-								//small if statement to set the new section header now so we loop smoother
-								if (caseInsensitivePrefixMatch((const a3byte*)line, (const a3byte*)"[BasePosition]"))
-									currentSection = Section_BasePosition;
-								else if (caseInsensitivePrefixMatch((const a3byte*)line, (const a3byte*)"[FrameData]"))
-									currentSection = Section_FrameData;
-								else
-									currentSection = Section_None;
-								
-							}
-						}
-						break;
-
-					case Section_BasePosition:
-						{
-
-						if (!poseGroup_out->hierarchy)
-						{
-							// tie the pose group to this hierarchy and allocate storage
-							if (a3hierarchyPoseGroupCreate(poseGroup_out, hierarchy_out, numFrames) <= 0)
-							{
-								fclose(file);
-								return -1;
-							}
-
-							// Use file’s Euler order for all nodes by default
-							for (a3ui32 i = 0; i < hierarchy_out->numNodes; ++i)
-								poseGroup_out->order[i] = fileEulerOrder;
-
-							if (line[0] == '[')
-								break;
-						}
-
-						// 1) Pull the segment name
-						a3byte segName[64] = { 0 };
-						{
-							a3i32 gotName = sscanf((const char*)line, " %63[^,]", segName);
-							if (gotName != 1)
-								break; //failsafe
-							trimWhiteSpace(segName);
-						}
-
-						// 2) Find which node this name refers to
-						a3i32 nodeIndex = -1;
-						for (a3ui32 k = 0; k < hierarchy_out->numNodes; ++k)
-						{
-							if (equalsIgnoreCase(hierarchy_out->nodes[k].name, segName))
-							{
-								nodeIndex = (a3i32)k;
-								break;
-							}
-						}
-
-						//Failsafe
-						if (nodeIndex < 0)
-							break;
-
-						// 3) Parse the 9 numbers after the name
-						a3real tx = 0, ty = 0, tz = 0;
-						a3real rx = 0, ry = 0, rz = 0;  //Calculating in Degrees
-						a3real sx = 1, sy = 1, sz = 1;
-
-						{
-							const char* comma = strchr((const char*)line, ',');
-							if (!comma) break; // no numbers? skip
-
-							// scan 9 reals: tx ty tz rx ry rz sx sy sz
-							// allow signs and decimals
-							a3i32 gotNums = sscanf(comma + 1,
-								" %f , %f , %f , %f , %f , %f , %f , %f , %f",
-								&tx, &ty, &tz, &rx, &ry, &rz, &sx, &sy, &sz);
-
-							if (gotNums < 6)
-								break;
-							if (gotNums < 9)
-							{
-								// if scale isn't fully provided, use 1s
-								if (gotNums < 7) sx = 1.0f;
-								if (gotNums < 8) sy = 1.0f;
-								if (gotNums < 9) sz = 1.0f;
-							}
-
-						}
-
-						// 4) Write into pose index 0 (the base pose) for this node
-						a3_SpatialPose* basePoseArray = poseGroup_out->hpose[0].hpose_base;
-						a3_SpatialPose* P = basePoseArray + nodeIndex;
-
-						// translate
-						P->translate.x = tx;
-						P->translate.y = ty;
-						P->translate.z = tz;
-
-						// scale
-						P->scale.x = sx;
-						P->scale.y = sy;
-						P->scale.z = sz;
-
-						// rotation
-						P->rotate.x = 0.0f;
-						P->rotate.y = 0.0f;
-						P->rotate.z = 0.0f;
-						P->rotate.w = 1.0f;
-
-							//todo : return to this if time permits
-						a3spatialPoseConvert(P, /*channel*/ a3poseChannel_none,  poseGroup_out->order[nodeIndex]);
-						}
-						break;
-
-					case Section_FrameData:
-							break;
-
-					default:
+					if (line[0] == '[')
 						break;
 				}
+
+				// 1) Pull the segment name
+				a3byte segName[64] = { 0 };
+				{
+					a3i32 gotName = sscanf((const char*)line, " %63[^,]", segName);
+					if (gotName != 1)
+						break; //failsafe
+					trimWhiteSpace(segName);
+				}
+
+				// 2) Find which node this name refers to
+				a3i32 nodeIndex = -1;
+				for (a3ui32 k = 0; k < hierarchy_out->numNodes; ++k)
+				{
+					if (equalsIgnoreCase(hierarchy_out->nodes[k].name, segName))
+					{
+						nodeIndex = (a3i32)k;
+						break;
+					}
+				}
+
+				//Failsafe
+				if (nodeIndex < 0)
+					break;
+
+				// 3) Parse the 9 numbers after the name
+				a3real tx = 0, ty = 0, tz = 0;
+				a3real rx = 0, ry = 0, rz = 0;  //Calculating in Degrees
+				a3real sx = 1, sy = 1, sz = 1;
+
+				{
+					const char* comma = strchr((const char*)line, ',');
+					if (!comma) break; // no numbers? skip
+
+					// scan 9 reals: tx ty tz rx ry rz sx sy sz
+					// allow signs and decimals
+					a3i32 gotNums = sscanf(comma + 1,
+						" %f , %f , %f , %f , %f , %f , %f , %f , %f",
+						&tx, &ty, &tz, &rx, &ry, &rz, &sx, &sy, &sz);
+
+					if (gotNums < 6)
+						break;
+					if (gotNums < 9)
+					{
+						// if scale isn't fully provided, use 1s
+						if (gotNums < 7) sx = 1.0f;
+						if (gotNums < 8) sy = 1.0f;
+						if (gotNums < 9) sz = 1.0f;
+					}
+
+				}
+
+				// 4) Write into pose index 0 (the base pose) for this node
+				a3_SpatialPose* basePoseArray = poseGroup_out->hpose[0].hpose_base;
+				a3_SpatialPose* P = basePoseArray + nodeIndex;
+
+				// translate
+				P->translate.x = tx;
+				P->translate.y = ty;
+				P->translate.z = tz;
+
+				// scale
+				P->scale.x = sx;
+				P->scale.y = sy;
+				P->scale.z = sz;
+
+				// rotation
+				P->rotate.x = 0.0f;
+				P->rotate.y = 0.0f;
+				P->rotate.z = 0.0f;
+				P->rotate.w = 1.0f;
+
+				//todo : return to this if time permits
+				a3spatialPoseConvert(P, /*channel*/ a3poseChannel_none, poseGroup_out->order[nodeIndex]);
+			}
+			break;
+
+			case Section_FrameData:
+
+				static a3boolean poseGroupIsReady = 0;
+				if (!poseGroupIsReady)
+				{
+					// Safety: need hierarchy_out->numNodes > 0 and numFrames > 0
+					if (hierarchy_out->numNodes == 0 || numFrames == 0) {
+						fclose(file);
+						return -1;
+					}
+					if (a3hierarchyPoseGroupCreate(poseGroup_out, hierarchy_out, numFrames) < 0) {
+						fclose(file);
+						return -1;
+					}
+					// Store per node defaults (if applicable, right now I don't think it is?)
+					for (a3ui32 n = 0; n < hierarchy_out->numNodes; ++n) {
+						poseGroup_out->channel[n] = a3poseChannel_none;
+						poseGroup_out->order[n] = fileEulerOrder;
+					}
+					poseGroupIsReady = 1;
+				}
+
+				static a3i32 currentFrameIndex = -1;
+
+				// 1) New-frame marker? e.g. "Frame 0" or "Frame: 0"
+				if (caseInsensitivePrefixMatch((const a3byte*)line, (const a3byte*)"Frame"))
+				{
+					a3i32 frameScanned = -1;
+					if (sscanf((const char*)line, "Frame %d", &frameScanned) == 1 ||
+						sscanf((const char*)line, "Frame: %d", &frameScanned) == 1 ||
+						sscanf((const char*)line, "Frame=%d", &frameScanned) == 1)
+					{
+						// Clamp/sanitize
+						if (frameScanned < 0) frameScanned = 0;
+						if ((a3ui32)frameScanned >= numFrames) frameScanned = (a3i32)(numFrames - 1);
+						currentFrameIndex = frameScanned;
+					}
+
+					break;
+				}
+
+				// 2) Must be a segment row (bone name followed by 9 numbers)
+				if (currentFrameIndex >= 0)
+				{
+					// Expect: name  tx ty tz   rx ry rz   sx sy sz
+					a3byte segName[64] = { 0 };
+					a3real tx = 0, ty = 0, tz = 0, rx = 0, ry = 0, rz = 0, sx = 1, sy = 1, sz = 1;
+
+					// Try a few tolerant patterns (space/comma separated)
+					int parsed =
+						sscanf((const char*)line, " %63s %f %f %f %f %f %f %f %f %f",
+							segName, &tx, &ty, &tz, &rx, &ry, &rz, &sx, &sy, &sz);
+					if (parsed < 7) /* try comma-delimited */
+						parsed = sscanf((const char*)line, " %63[^,], %f ,%f ,%f ,%f ,%f ,%f ,%f ,%f ,%f",
+							segName, &tx, &ty, &tz, &rx, &ry, &rz, &sx, &sy, &sz);
+
+					if (parsed >= 7) // we at least have T and R; S may default to 1s
+					{
+						// Find which node this segment name corresponds to
+						a3i32 nodeIndex = -1;
+						for (a3ui32 k = 0; k < hierarchy_out->numNodes; ++k)
+							if (equalsIgnoreCase(hierarchy_out->nodes[k].name, segName)) { nodeIndex = (a3i32)k; break; }
+
+						if (nodeIndex >= 0)
+						{
+							// Grab the pose for this frame + node
+							a3_SpatialPose* poseHere = poseGroup_out->hpose[currentFrameIndex].hpose_base + nodeIndex;
+
+							// Fill translate and scale directly
+							poseHere->translate.x = tx;  poseHere->translate.y = ty;  poseHere->translate.z = tz;
+							poseHere->scale.x = sx;  poseHere->scale.y = sy;  poseHere->scale.z = sz;
+
+							// Mark that this node has these channels present"
+							poseGroup_out->channel[nodeIndex] = (a3_SpatialPoseChannel)
+								(a3poseChannel_translate_xyz | a3poseChannel_rotate_xyz | a3poseChannel_scale_xyz);
+
+							// rx, ry, rz are degrees from the file
+							a3real4x4 T, R, S, TR;
+							a3real4x4SetIdentity(T);
+							T[3][0] = tx; T[3][1] = ty; T[3][2] = tz;
+
+							a3real4x4SetNonUnif(S, sx, sy, sz);
+
+							// Build r according to the parsed Euler order
+							switch (poseGroup_out->order[nodeIndex])
+							{
+							case a3poseEulerOrder_xyz:
+								a3real4x4SetRotateXYZ(R, rx, ry, rz);
+								break;
+
+							case a3poseEulerOrder_zyx:
+								a3real4x4SetRotateZYX(R, rx, ry, rz);
+								break;
+
+
+							case a3poseEulerOrder_xzy:
+							{
+								a3real4x4 Rx, Rz, Ry, Rtemp;
+								a3real4x4SetRotateX(Rx, rx);
+								a3real4x4SetRotateZ(Rz, rz);
+								a3real4x4SetRotateY(Ry, ry);
+								a3real4x4Product(Rtemp, Rx, Rz);   // Rx * Rz
+								a3real4x4Product(R, Rtemp, Ry);    // (Rx * Rz) * Ry
+								break;
+							}
+							case a3poseEulerOrder_yxz:
+							{
+								a3real4x4 Ry, Rx, Rz, Rtemp;
+								a3real4x4SetRotateY(Ry, ry);
+								a3real4x4SetRotateX(Rx, rx);
+								a3real4x4SetRotateZ(Rz, rz);
+								a3real4x4Product(Rtemp, Ry, Rx);
+								a3real4x4Product(R, Rtemp, Rz);
+								break;
+							}
+							case a3poseEulerOrder_yzx:
+							{
+								a3real4x4 Ry, Rz, Rx, Rtemp;
+								a3real4x4SetRotateY(Ry, ry);
+								a3real4x4SetRotateZ(Rz, rz);
+								a3real4x4SetRotateX(Rx, rx);
+								a3real4x4Product(Rtemp, Ry, Rz);
+								a3real4x4Product(R, Rtemp, Rx);
+								break;
+							}
+							case a3poseEulerOrder_zxy:
+							{
+								a3real4x4 Rz, Rx, Ry, Rtemp;
+								a3real4x4SetRotateZ(Rz, rz);
+								a3real4x4SetRotateX(Rx, rx);
+								a3real4x4SetRotateY(Ry, ry);
+								a3real4x4Product(Rtemp, Rz, Rx);
+								a3real4x4Product(R, Rtemp, Ry);
+								break;
+							}
+
+							default:
+								a3real4x4SetRotateXYZ(R, rx, ry, rz);
+								break;
+							}
+
+							// Compose: M = T * R * S
+							a3real4x4Product(TR, T, R);
+							a3real4x4Product(poseHere->transformMat.m, TR, S);
+
+							poseHere->rotate.x = 0.0f;
+							poseHere->rotate.y = 0.0f;
+							poseHere->rotate.z = 0.0f;
+							poseHere->rotate.w = 1.0f;
+
+						}
+					}
+				}
+				break;
+
+			default:
+				break;
 			}
 		}
 
+		fclose(file);
+		return 1;
 //-----------------------------------------------------------------------------
 //****END-TO-DO-PROJECT-2
 //-----------------------------------------------------------------------------
