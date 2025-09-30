@@ -27,6 +27,22 @@
 
 //-----------------------------------------------------------------------------
 
+//Little Helper maths function because for the life of me I couldn't figure out the equivilant. 
+static inline void a3quatInverse_(a3real4p q_out, const a3real4p q)
+{
+	
+	a3real4 tmp;
+	tmp[0] = -q[0];
+	tmp[1] = -q[1];
+	tmp[2] = -q[2];
+	tmp[3] = q[3];
+
+	const a3real len2 = a3real4Dot(q, q);
+	const a3real inv = (len2 != 0) ? (a3real_one / len2) : a3real_one;
+
+	a3real4ProductS(q_out, tmp, inv);
+}
+
 // convert single node pose to matrix
 a3i32 a3spatialPoseConvert(a3_SpatialPose* spatialPose, const a3_SpatialPoseChannel channel, const a3_SpatialPoseEulerOrder order)
 {
@@ -124,7 +140,7 @@ a3i32 a3spatialPoseConcat(a3_SpatialPose* spatialPose_out, const a3_SpatialPose*
 //-----------------------------------------------------------------------------
 //****TO-DO-ANIM-PROJECT-2: IMPLEMENT ME
 //-----------------------------------------------------------------------------
-		
+	/*	
 		a3real4Sum
 		(
 			spatialPose_out->rotate.v,
@@ -139,12 +155,26 @@ a3i32 a3spatialPoseConcat(a3_SpatialPose* spatialPose_out, const a3_SpatialPose*
 			spatialPose_rhs->translate.v
 		);
 
+		
 		a3real4ProductComp
 		(
 			spatialPose_out->scale.v,
 			spatialPose_lhs->scale.v,
 			spatialPose_rhs->scale.v
 		);
+
+*/
+
+		// rotation (Multiplicitive)
+		a3quatProduct(spatialPose_out->rotate.v, spatialPose_lhs->rotate.v, spatialPose_rhs->rotate.v);
+
+		// translation (Additive)
+		a3real3Sum(spatialPose_out->translate.v, spatialPose_lhs->translate.v, spatialPose_rhs->translate.v);
+
+		// scale (Multiplicitive)
+		a3real3ProductComp(spatialPose_out->scale.v, spatialPose_lhs->scale.v, spatialPose_rhs->scale.v);
+
+		return 1;
 
 //-----------------------------------------------------------------------------
 //****END-TO-DO-PROJECT-2
@@ -161,7 +191,7 @@ a3i32 a3spatialPoseDeconcat(a3_SpatialPose* spatialPose_out, const a3_SpatialPos
 //-----------------------------------------------------------------------------
 //****TO-DO-ANIM-PROJECT-2: IMPLEMENT ME
 //-----------------------------------------------------------------------------
-		
+		/*
 		a3real4Diff
 		(
 			spatialPose_out->rotate.v,
@@ -182,6 +212,18 @@ a3i32 a3spatialPoseDeconcat(a3_SpatialPose* spatialPose_out, const a3_SpatialPos
 			spatialPose_lhs->scale.v,
 			spatialPose_rhs->scale.v
 		);
+		*/
+
+		a3vec4 qinv;
+		a3quatInverse_(qinv.v, spatialPose_rhs->rotate.v);
+
+		a3quatProduct(spatialPose_out->rotate.v, spatialPose_lhs->rotate.v, qinv.v);
+		a3real4Normalize(spatialPose_out->rotate.v); // tidy
+
+		a3real3Diff(spatialPose_out->translate.v, spatialPose_lhs->translate.v, spatialPose_rhs->translate.v);
+		a3real3QuotientComp(spatialPose_out->scale.v, spatialPose_lhs->scale.v, spatialPose_rhs->scale.v);
+
+		return 1;
 
 //-----------------------------------------------------------------------------
 //****END-TO-DO-PROJECT-2
@@ -198,30 +240,11 @@ a3i32 a3spatialPoseLerp(a3_SpatialPose* spatialPose_out, const a3_SpatialPose* s
 //-----------------------------------------------------------------------------
 //****TO-DO-ANIM-PROJECT-2: IMPLEMENT ME
 //-----------------------------------------------------------------------------
-		
-		a3quatSlerp
-		(
-			spatialPose_out->rotate.v,
-			spatialPose_0->rotate.v,
-			spatialPose_1->rotate.v,
-			u
-		);
-
-		a3real3Lerp
-		(
-			spatialPose_out->translate.v,
-			spatialPose_0->translate.v,
-			spatialPose_1->translate.v,
-			u
-		);
-
-		a3real3Lerp
-		(
-			spatialPose_out->scale.v,
-			spatialPose_0->scale.v,
-			spatialPose_1->scale.v,
-			u
-		);
+		//cleaned and tidy
+		a3quatSlerp(spatialPose_out->rotate.v, spatialPose_0->rotate.v, spatialPose_1->rotate.v, u);
+		a3real3Lerp(spatialPose_out->translate.v, spatialPose_0->translate.v, spatialPose_1->translate.v, u);
+		a3real3Lerp(spatialPose_out->scale.v, spatialPose_0->scale.v, spatialPose_1->scale.v, u);
+		return 1;
 
 //-----------------------------------------------------------------------------
 //****END-TO-DO-PROJECT-2

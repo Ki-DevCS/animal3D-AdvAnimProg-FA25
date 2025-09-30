@@ -513,6 +513,9 @@ a3i32 a3hierarchyPoseGroupLoadHTR(a3_HierarchyPoseGroup* poseGroup_out, a3_Hiera
 		static a3ui32   segScratchCount = 0;
 		static a3boolean segCollecting = 0;
 
+		static a3boolean poseGroupIsReady = 0;
+		static a3i32 currentFrameIndex = -1;
+
 		//buffer
 		a3byte line[1024];
 		//(void)line; //allow build
@@ -732,7 +735,7 @@ a3i32 a3hierarchyPoseGroupLoadHTR(a3_HierarchyPoseGroup* poseGroup_out, a3_Hiera
 
 			case Section_FrameData:
 
-				static a3boolean poseGroupIsReady = 0;
+				
 				if (!poseGroupIsReady)
 				{
 					// Safety: need hierarchy_out->numNodes > 0 and numFrames > 0
@@ -751,8 +754,6 @@ a3i32 a3hierarchyPoseGroupLoadHTR(a3_HierarchyPoseGroup* poseGroup_out, a3_Hiera
 					}
 					poseGroupIsReady = 1;
 				}
-
-				static a3i32 currentFrameIndex = -1;
 
 				// 1) New-frame marker? e.g. "Frame 0" or "Frame: 0"
 				if (caseInsensitivePrefixMatch((const a3byte*)line, (const a3byte*)"Frame"))
@@ -802,9 +803,8 @@ a3i32 a3hierarchyPoseGroupLoadHTR(a3_HierarchyPoseGroup* poseGroup_out, a3_Hiera
 							poseHere->translate.x = tx;  poseHere->translate.y = ty;  poseHere->translate.z = tz;
 							poseHere->scale.x = sx;  poseHere->scale.y = sy;  poseHere->scale.z = sz;
 
-							// Mark that this node has these channels present"
-							poseGroup_out->channel[nodeIndex] = (a3_SpatialPoseChannel)
-								(a3poseChannel_translate_xyz | a3poseChannel_rotate_xyz | a3poseChannel_scale_xyz);
+							// Mark that this node has these channels present
+							poseGroup_out->channel[nodeIndex] = a3poseChannel_none;
 
 							// rx, ry, rz are degrees from the file
 							a3real4x4 T, R, S, TR;
