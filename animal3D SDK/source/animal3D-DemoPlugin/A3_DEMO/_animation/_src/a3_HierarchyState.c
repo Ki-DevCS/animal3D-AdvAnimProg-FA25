@@ -22,6 +22,11 @@
 	Implementation of transform hierarchy state.
 */
 
+/*
+	Modifications by Alessa Wunsch
+ */
+
+
 #include "../a3_HierarchyState.h"
 
 #include <stdlib.h>

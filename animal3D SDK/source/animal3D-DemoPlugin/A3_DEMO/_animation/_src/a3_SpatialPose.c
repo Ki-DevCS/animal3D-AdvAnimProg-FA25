@@ -22,6 +22,10 @@
 	Implementation of spatial pose.
 */
 
+/*
+	Modifications by Alessa Wunsch
+ */
+
 #include "../a3_SpatialPose.h"
 
 

@@ -22,6 +22,10 @@
 	Implementation of kinematics solvers.
 */
 
+/*
+	Modifications by Alessa Wunsch
+ */
+
 #include "../a3_Kinematics.h"
 
 
