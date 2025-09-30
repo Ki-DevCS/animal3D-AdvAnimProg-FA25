@@ -705,7 +705,97 @@ a3i32 a3hierarchyPoseGroupLoadHTR(a3_HierarchyPoseGroup* poseGroup_out, a3_Hiera
 
 					case Section_BasePosition:
 						{
-							
+
+						if (!poseGroup_out->hierarchy)
+						{
+							// tie the pose group to this hierarchy and allocate storage
+							if (a3hierarchyPoseGroupCreate(poseGroup_out, hierarchy_out, numFrames) <= 0)
+							{
+								fclose(file);
+								return -1;
+							}
+
+							// Use file’s Euler order for all nodes by default
+							for (a3ui32 i = 0; i < hierarchy_out->numNodes; ++i)
+								poseGroup_out->order[i] = fileEulerOrder;
+
+							if (line[0] == '[')
+								break;
+						}
+
+						// 1) Pull the segment name
+						a3byte segName[64] = { 0 };
+						{
+							a3i32 gotName = sscanf((const char*)line, " %63[^,]", segName);
+							if (gotName != 1)
+								break; //failsafe
+							trimWhiteSpace(segName);
+						}
+
+						// 2) Find which node this name refers to
+						a3i32 nodeIndex = -1;
+						for (a3ui32 k = 0; k < hierarchy_out->numNodes; ++k)
+						{
+							if (equalsIgnoreCase(hierarchy_out->nodes[k].name, segName))
+							{
+								nodeIndex = (a3i32)k;
+								break;
+							}
+						}
+
+						//Failsafe
+						if (nodeIndex < 0)
+							break;
+
+						// 3) Parse the 9 numbers after the name
+						a3real tx = 0, ty = 0, tz = 0;
+						a3real rx = 0, ry = 0, rz = 0;  //Calculating in Degrees
+						a3real sx = 1, sy = 1, sz = 1;
+
+						{
+							const char* comma = strchr((const char*)line, ',');
+							if (!comma) break; // no numbers? skip
+
+							// scan 9 reals: tx ty tz rx ry rz sx sy sz
+							// allow signs and decimals
+							a3i32 gotNums = sscanf(comma + 1,
+								" %f , %f , %f , %f , %f , %f , %f , %f , %f",
+								&tx, &ty, &tz, &rx, &ry, &rz, &sx, &sy, &sz);
+
+							if (gotNums < 6)
+								break;
+							if (gotNums < 9)
+							{
+								// if scale isn't fully provided, use 1s
+								if (gotNums < 7) sx = 1.0f;
+								if (gotNums < 8) sy = 1.0f;
+								if (gotNums < 9) sz = 1.0f;
+							}
+
+						}
+
+						// 4) Write into pose index 0 (the base pose) for this node
+						a3_SpatialPose* basePoseArray = poseGroup_out->hpose[0].hpose_base;
+						a3_SpatialPose* P = basePoseArray + nodeIndex;
+
+						// translate
+						P->translate.x = tx;
+						P->translate.y = ty;
+						P->translate.z = tz;
+
+						// scale
+						P->scale.x = sx;
+						P->scale.y = sy;
+						P->scale.z = sz;
+
+						// rotation
+						P->rotate.x = 0.0f;
+						P->rotate.y = 0.0f;
+						P->rotate.z = 0.0f;
+						P->rotate.w = 1.0f;
+
+							//todo : return to this if time permits
+						a3spatialPoseConvert(P, /*channel*/ a3poseChannel_none,  poseGroup_out->order[nodeIndex]);
 						}
 						break;
 
